@@ -36,6 +36,8 @@ const EASE_MAP: Record<string, string> = {
   linear: "linear",
 };
 
+const GOLDEN_ANGLE = 137.508;
+
 interface Particle {
   id: number;
   ang: number;
@@ -63,18 +65,36 @@ function generate(config: EffectConfig): Particle[] {
     config.motionPattern === "bloom-spiral" ||
     config.motionPattern === "burst-radial" ||
     config.motionPattern === "swirl";
+  const phyllotaxis = config.motionPattern === "bloom-spiral";
+  const maxRadius = spread * 1.05;
 
   for (let i = 0; i < count; i++) {
     const layer = i % layers;
-    const ang = (360 / count) * i + layer * (360 / count) * 0.5;
-    const dist =
-      spread * (0.45 + (0.6 * layer) / Math.max(layers - 1, 1)) +
-      (Math.random() * 14 - 7);
+    let ang: number;
+    let dist: number;
+    let size: number;
+
+    if (phyllotaxis) {
+      const progress = i / Math.max(count - 1, 1);
+      ang = i * GOLDEN_ANGLE + (Math.random() * 8 - 4);
+      dist =
+        spread * Math.sqrt((i + 1) / count) * 1.05 +
+        (Math.random() * 3 - 1.5);
+      size = baseSize * (0.8 + 0.5 * progress) * (0.85 + Math.random() * 0.3);
+    } else {
+      ang = (360 / count) * i + layer * (360 / count) * 0.5;
+      dist =
+        spread * (0.45 + (0.6 * layer) / Math.max(layers - 1, 1)) +
+        (Math.random() * 14 - 7);
+      size = baseSize * (0.7 + Math.random() * 0.7);
+    }
+
     const delay =
-      config.timing.stagger * i + layer * 0.18 + Math.random() * 0.15;
+      config.timing.stagger * i +
+      (phyllotaxis ? (dist / maxRadius) * 0.35 : layer * 0.18) +
+      Math.random() * 0.15;
     const duration =
       Math.max(0.8, config.timing.duration + (Math.random() * 0.5 - 0.25));
-    const size = baseSize * (0.7 + Math.random() * 0.7);
 
     particles.push({
       id: i,
@@ -115,16 +135,25 @@ function keyframeName(pattern: MotionPattern): string {
 function shapeStyle(
   shape: ParticleShape,
   color: string,
+  palette: string[],
   size: number,
+  index: number,
 ): React.CSSProperties | null {
   switch (shape) {
-    case "petal":
+    case "petal": {
+      const n = Math.max(palette.length, 1);
+      const dark = palette[index % n] ?? color;
+      const mid = palette[(index + 1) % n] ?? dark;
+      const light = palette[(index + 2) % n] ?? mid;
       return {
         width: size,
-        height: size * 1.6,
-        background: color,
-        borderRadius: `${size * 0.8}px ${size * 0.8}px ${size * 0.6}px ${size * 0.6}px`,
+        height: size * 1.5,
+        background: `radial-gradient(ellipse at 30% 28%, ${light} 0%, ${mid} 46%, ${dark} 86%, rgba(22, 3, 12, 0.3) 100%)`,
+        borderRadius: "50% 0 50% 0",
+        boxShadow: `0 ${size * 0.12}px ${size * 0.45}px -${size * 0.08}px rgba(15, 0, 8, 0.45), 0 0 ${size * 0.7}px ${mid}59`,
+        mixBlendMode: "screen",
       };
+    }
     case "circle":
     case "firefly":
     case "light":
@@ -163,7 +192,7 @@ export default function EffectStage({
   const name = keyframeName(config.motionPattern);
   const spinVar =
     config.motionPattern === "bloom-spiral"
-      ? 320
+      ? 240
       : config.motionPattern === "swirl"
         ? 900
         : 0;
@@ -171,10 +200,16 @@ export default function EffectStage({
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute inset-0 z-[1] overflow-hidden"
+      className="pointer-events-none absolute inset-0 z-[1] isolate overflow-hidden"
     >
       {particles.map((p) => {
-        const shape = shapeStyle(config.particleShape, p.color, p.size);
+        const shape = shapeStyle(
+          config.particleShape,
+          p.color,
+          config.colorPalette,
+          p.size,
+          p.id,
+        );
         const base: React.CSSProperties = {
           position: "absolute",
           animationName: name,
