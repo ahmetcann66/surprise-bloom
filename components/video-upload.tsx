@@ -123,6 +123,7 @@ export default function VideoUpload({ onResult }: VideoUploadProps) {
       onResult(dataUrl);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Video işlenemedi.");
+      if (inputRef.current) inputRef.current.value = "";
     } finally {
       setProcessing(false);
     }

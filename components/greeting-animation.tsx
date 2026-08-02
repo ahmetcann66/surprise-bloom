@@ -152,8 +152,9 @@ export default function GreetingAnimation({
           />
         ))}
 
-      <main className="relative z-10 flex min-h-dvh flex-col items-center justify-center px-6 text-center">
-        <div className="relative h-80 w-80">
+      <main className="relative z-10 flex min-h-dvh flex-col items-center overflow-y-auto px-6 text-center">
+        <div className="m-auto flex w-full flex-col items-center py-6">
+          <div className="relative h-80 w-80">
           {cssPetalsVisible &&
             petals.map((p, i) => (
               <span
@@ -262,6 +263,7 @@ export default function GreetingAnimation({
             )}
           </div>
         )}
+        </div>
       </main>
 
       <div className="absolute bottom-3 right-3 z-20">

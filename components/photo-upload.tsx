@@ -18,6 +18,7 @@ export default function PhotoUpload({ onResult }: PhotoUploadProps) {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       setError("Lütfen bir fotoğraf dosyası seç.");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
     setProcessing(true);
