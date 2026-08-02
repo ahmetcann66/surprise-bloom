@@ -250,3 +250,99 @@ body {
     opacity: 1;
   }
 }
+
+/* ---- Efekt motoru keyframeleri ---- */
+
+.eff-p {
+  will-change: transform, opacity;
+}
+
+.eff-shape {
+  display: inline-block;
+}
+
+@keyframes eff-bloom-spiral {
+  0% {
+    transform: rotate(var(--ang)) translateY(0) scale(0);
+    opacity: 0;
+  }
+  12% {
+    opacity: var(--op);
+  }
+  100% {
+    transform: rotate(calc(var(--ang) + var(--spin))) translateY(var(--dist)) scale(var(--s));
+    opacity: 0;
+  }
+}
+
+@keyframes eff-burst {
+  0% {
+    transform: rotate(var(--ang)) translateY(0) scale(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: var(--op);
+  }
+  100% {
+    transform: rotate(calc(var(--ang) + var(--spin))) translateY(var(--dist)) scale(var(--s));
+    opacity: 0;
+  }
+}
+
+@keyframes eff-swirl {
+  0% {
+    transform: rotate(0deg) translateY(0) scale(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: var(--op);
+  }
+  100% {
+    transform: rotate(calc(var(--ang) + 720deg)) translateY(var(--dist)) scale(var(--s));
+    opacity: 0;
+  }
+}
+
+@keyframes eff-float {
+  0% {
+    transform: translate(0, 0) scale(0.5);
+    opacity: 0;
+  }
+  8% {
+    opacity: var(--op);
+  }
+  55% {
+    transform: translate(var(--drift), -45vh) scale(var(--s));
+    opacity: var(--op);
+  }
+  100% {
+    transform: translate(calc(var(--drift) * -0.7), -85vh) scale(var(--s));
+    opacity: 0;
+  }
+}
+
+@keyframes eff-fall {
+  0% {
+    transform: translate(0, -25vh) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: var(--op);
+  }
+  100% {
+    transform: translate(var(--drift), 95vh) rotate(var(--spin));
+    opacity: 0;
+  }
+}
+
+@keyframes eff-sparkle {
+  0%,
+  100% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(var(--s));
+    opacity: var(--op);
+  }
+}

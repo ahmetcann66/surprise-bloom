@@ -19,26 +19,39 @@ export interface Template {
   palettes: Theme[];
 }
 
+export interface Position {
+  x: number;
+  y: number;
+}
+
 export interface Greeting {
   id: string;
   template: TemplateId;
   paletteId: string;
-  name: string;
+  name: string | null;
   message?: string;
   audio?: GreetingAudio;
   photo?: string;
   video?: string;
+  position?: "top" | "center" | "bottom";
+  effect?: string;
+  photoPos?: Position;
+  textPos?: Position;
   createdAt: string;
 }
 
 export interface CreateGreetingInput {
   template: TemplateId;
   paletteId?: string;
-  name: string;
+  name?: string;
   message?: string;
   audio?: GreetingAudio;
   photo?: string;
   video?: string;
+  position?: "top" | "center" | "bottom";
+  effect?: string;
+  photoPos?: Position;
+  textPos?: Position;
 }
 
 // Ses: hazır klip (clip) veya kullanıcı kaydı (recording).

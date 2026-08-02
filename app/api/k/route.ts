@@ -1,7 +1,22 @@
 import { NextResponse } from "next/server";
 import { createMessage } from "@/lib/store";
 import { getClip } from "@/lib/clips";
-import type { GreetingAudio } from "@/lib/types";
+import { hasEffect } from "@/lib/effects/presets";
+import type { GreetingAudio, Position } from "@/lib/types";
+
+function parsePos(raw: unknown): Position | undefined {
+  if (
+    !raw ||
+    typeof raw !== "object" ||
+    typeof (raw as Position).x !== "number" ||
+    typeof (raw as Position).y !== "number"
+  ) {
+    return undefined;
+  }
+  const x = Math.min(95, Math.max(5, (raw as Position).x));
+  const y = Math.min(95, Math.max(5, (raw as Position).y));
+  return { x, y };
+}
 
 function parseAudio(raw: unknown): GreetingAudio | undefined {
   if (!raw || typeof raw !== "object") return undefined;
@@ -27,10 +42,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
 
-  const { template, name, message, audio, photo, video } = (body ?? {}) as {
+  const { template, name, message, position, effect, photoPos, textPos, audio, photo, video } = (body ?? {}) as {
     template?: string;
     name?: string;
     message?: string;
+    position?: string;
+    effect?: string;
+    photoPos?: unknown;
+    textPos?: unknown;
     audio?: unknown;
     photo?: unknown;
     video?: unknown;
@@ -42,17 +61,45 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (!name || typeof name !== "string" || !name.trim()) {
-    return NextResponse.json(
-      { error: "Alıcının ismi gerekli." },
-      { status: 400 },
-    );
-  }
 
   const parsedAudio = parseAudio(audio);
   if (audio !== undefined && audio !== null && !parsedAudio) {
     return NextResponse.json(
       { error: "Geçersiz ses seçimi." },
+      { status: 400 },
+    );
+  }
+
+  const parsedPosition =
+    position === "top" || position === "bottom"
+      ? position
+      : position === "center"
+        ? "center"
+        : undefined;
+  if (position !== undefined && parsedPosition === undefined) {
+    return NextResponse.json(
+      { error: "Geçersiz konum seçimi." },
+      { status: 400 },
+    );
+  }
+
+  if (effect !== undefined && effect !== null && !hasEffect(effect)) {
+    return NextResponse.json(
+      { error: "Geçersiz efekt seçimi." },
+      { status: 400 },
+    );
+  }
+
+  if (photoPos !== undefined && photoPos !== null && !parsePos(photoPos)) {
+    return NextResponse.json(
+      { error: "Geçersiz fotoğraf konumu." },
+      { status: 400 },
+    );
+  }
+
+  if (textPos !== undefined && textPos !== null && !parsePos(textPos)) {
+    return NextResponse.json(
+      { error: "Geçersiz yazı konumu." },
       { status: 400 },
     );
   }
@@ -86,8 +133,12 @@ export async function POST(request: Request) {
   try {
     const greeting = await createMessage({
       template: template as Parameters<typeof createMessage>[0]["template"],
-      name,
+      name: typeof name === "string" && name.trim() ? name.trim() : undefined,
       message: typeof message === "string" ? message : undefined,
+      position: parsedPosition,
+      effect: typeof effect === "string" ? effect : undefined,
+      photoPos: parsePos(photoPos),
+      textPos: parsePos(textPos),
       audio: parsedAudio,
       photo: typeof photo === "string" ? photo : undefined,
       video: typeof video === "string" ? video : undefined,

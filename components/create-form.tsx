@@ -4,11 +4,19 @@ import { useState } from "react";
 import { getPalette, templates } from "@/lib/templates";
 import { clips } from "@/lib/clips";
 import type { GreetingAudio, TemplateId } from "@/lib/types";
+import {
+  EFFECT_CATEGORIES,
+  EFFECTS,
+  DEFAULT_EFFECT_BY_TEMPLATE,
+  getEffect,
+} from "@/lib/effects/presets";
+import type { EffectId } from "@/lib/effects/types";
 import QrCode from "@/components/qr-code";
 import AudioRecorder from "@/components/audio-recorder";
 import GreetingAudioButton from "@/components/greeting-audio";
 import PhotoUpload from "@/components/photo-upload";
 import VideoUpload from "@/components/video-upload";
+import LayoutEditor, { type Pos } from "@/components/layout-editor";
 
 interface CreatedLink {
   url: string;
@@ -20,6 +28,11 @@ export default function CreateForm() {
   const [paletteId, setPaletteId] = useState<string>(templates[0].palettes[0].id);
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
+  const [effectId, setEffectId] = useState<EffectId>(
+    DEFAULT_EFFECT_BY_TEMPLATE[templates[0].id],
+  );
+  const [photoPos, setPhotoPos] = useState<Pos>({ x: 50, y: 50 });
+  const [textPos, setTextPos] = useState<Pos>({ x: 50, y: 75 });
   const [audio, setAudio] = useState<GreetingAudio | null>(null);
   const [photo, setPhoto] = useState<string | undefined>(undefined);
   const [video, setVideo] = useState<string | undefined>(undefined);
@@ -37,10 +50,6 @@ export default function CreateForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) {
-      setError("Lütfen bir isim gir.");
-      return;
-    }
     setCreating(true);
     setError("");
     try {
@@ -50,8 +59,11 @@ export default function CreateForm() {
         body: JSON.stringify({
           template: templateId,
           paletteId,
-          name: name.trim(),
+          name: name.trim() || undefined,
           message: message.trim() || undefined,
+          effect: effectId,
+          photoPos,
+          textPos,
           audio: audio ?? undefined,
           photo: photo,
           video: video,
@@ -86,6 +98,9 @@ export default function CreateForm() {
     setCreated(null);
     setName("");
     setMessage("");
+    setEffectId(DEFAULT_EFFECT_BY_TEMPLATE[templates[0].id]);
+    setPhotoPos({ x: 50, y: 50 });
+    setTextPos({ x: 50, y: 75 });
     setAudio(null);
     setPhoto(undefined);
     setVideo(undefined);
@@ -223,7 +238,8 @@ export default function CreateForm() {
               htmlFor="name"
               className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
             >
-              Alıcının ismi
+              Alıcının ismi{" "}
+              <span className="font-normal text-zinc-400">(opsiyonel)</span>
             </label>
             <input
               id="name"
@@ -253,6 +269,49 @@ export default function CreateForm() {
               maxLength={280}
               className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
             />
+          </div>
+
+          <div>
+            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+              Efekt seç{" "}
+              <span className="font-normal text-zinc-400">
+                (şablondan bağımsız)
+              </span>
+            </span>
+            <div className="mt-3 space-y-4">
+              {EFFECT_CATEGORIES.map((cat) => {
+                const list = Object.values(EFFECTS).filter(
+                  (e) => e.category === cat.id,
+                );
+                return (
+                  <div key={cat.id}>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                      {cat.label}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {list.map((ef) => {
+                        const active = effectId === ef.id;
+                        return (
+                          <button
+                            key={ef.id}
+                            type="button"
+                            onClick={() => setEffectId(ef.id)}
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                              active
+                                ? "border-pink-500 ring-2 ring-pink-500/30"
+                                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                            }`}
+                          >
+                            <span aria-hidden>{ef.emoji}</span>
+                            {ef.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <div>
@@ -322,6 +381,20 @@ export default function CreateForm() {
             </span>
             <VideoUpload onResult={(url) => setVideo(url ?? undefined)} />
           </div>
+
+          <LayoutEditor
+            photo={photo}
+            name={name}
+            message={message}
+            theme={getPalette(selectedTemplate, paletteId)}
+            effect={getEffect(effectId)}
+            photoPos={photoPos}
+            textPos={textPos}
+            onChange={(p, t) => {
+              setPhotoPos(p);
+              setTextPos(t);
+            }}
+          />
 
           {error && (
             <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">

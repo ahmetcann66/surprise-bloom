@@ -5,11 +5,15 @@ create table if not exists public.greetings (
   id text primary key,
   template text not null,
   palette text,
-  name text not null,
+  name text,
   message text,
   audio jsonb,
   photo text,
   video text,
+  position text,
+  effect text,
+  photo_pos jsonb,
+  text_pos jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -18,6 +22,13 @@ alter table public.greetings add column if not exists palette text;
 alter table public.greetings add column if not exists audio jsonb;
 alter table public.greetings add column if not exists photo text;
 alter table public.greetings add column if not exists video text;
+alter table public.greetings add column if not exists position text;
+alter table public.greetings add column if not exists effect text;
+alter table public.greetings add column if not exists photo_pos jsonb;
+alter table public.greetings add column if not exists text_pos jsonb;
+
+-- İsim artık zorunlu değil (eski tablolarda NOT NULL olabilir)
+alter table public.greetings alter column name drop not null;
 
 alter table public.greetings enable row level security;
 

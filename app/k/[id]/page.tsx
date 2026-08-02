@@ -33,11 +33,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   const template = getTemplate(greeting.template);
   const emoji = template?.emoji ?? "💌";
+  const titleName = greeting.name || "Sana";
   return {
-    title: `${greeting.name} için özel bir mesajın var ${emoji}`,
+    title: `${titleName} için özel bir mesajın var ${emoji}`,
     description: greeting.message || template?.messages[0],
     openGraph: {
-      title: `${greeting.name} için özel bir mesajın var ${emoji}`,
+      title: `${titleName} için özel bir mesajın var ${emoji}`,
       description: greeting.message || template?.messages[0],
       images: [{ url: `/api/og/${id}`, width: 1200, height: 630 }],
     },
