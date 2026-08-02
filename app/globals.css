@@ -253,6 +253,10 @@ body {
 
 /* ---- Efekt motoru keyframeleri ---- */
 
+.vf-ready {
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.28));
+}
+
 .eff-p {
   will-change: transform, opacity;
 }

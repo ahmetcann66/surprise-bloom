@@ -5,8 +5,10 @@
 import { useEffect, useState } from "react";
 import type { Greeting, Template, Theme } from "@/lib/types";
 import GreetingAudioButton from "@/components/greeting-audio";
+import VectorFormEffect from "@/components/vector-form-effect";
 import EffectStage from "@/lib/effects/engine";
 import { getEffect } from "@/lib/effects/presets";
+import { isVectorFlower } from "@/lib/effects/flowers";
 
 interface GreetingAnimationProps {
   greeting: Greeting;
@@ -31,17 +33,59 @@ export default function GreetingAnimation({
   }, []);
 
   const message = greeting.message || template.messages[0];
-  const effect = getEffect(greeting.effect);
+  const placements =
+    greeting.effects && greeting.effects.length > 0
+      ? greeting.effects
+      : greeting.effect
+        ? [{ id: greeting.effect }]
+        : [];
   const showText = opened;
   const photoPos = greeting.photoPos ?? { x: 50, y: 50 };
   const textPos = greeting.textPos ?? { x: 50, y: 70 };
+  const effectScale = greeting.effectScale ?? 1;
+  const videoScale = greeting.videoScale ?? 1;
+  const photoScale = photoPos.scale ?? 1;
+  const fontSize = textPos.fontSize ?? 1;
 
   return (
     <div
       className="relative min-h-dvh w-full overflow-hidden"
       style={{ background: theme.background, color: theme.textColor }}
     >
-      <EffectStage config={effect} active={opened} reducedMotion={reducedMotion} />
+      {placements.map((placement, index) => {
+        const cfg = getEffect(placement.id);
+        const pos = { x: placement.x ?? 50, y: placement.y ?? 50 };
+        const scale = placement.scale ?? effectScale;
+        if (isVectorFlower(placement.id)) {
+          return (
+            <VectorFormEffect
+              key={`${index}-${placement.id}`}
+              config={cfg}
+              active={opened}
+              reducedMotion={reducedMotion}
+              scale={scale}
+              position={pos}
+            />
+          );
+        }
+        return (
+          <div
+            key={`${index}-${placement.id}`}
+            className="absolute inset-0 z-[1]"
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: `${pos.x}% ${pos.y}%`,
+            }}
+          >
+            <EffectStage
+              config={cfg}
+              active={opened}
+              reducedMotion={reducedMotion}
+              origin={pos}
+            />
+          </div>
+        );
+      })}
 
       {!opened && (
         <button
@@ -62,26 +106,17 @@ export default function GreetingAnimation({
 
       {showText && (
         <>
-          <span
-            className="pointer-events-none absolute left-1/2 top-1/2 z-[2] flex h-20 w-20 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-4xl"
-            style={{
-              background: theme.centerColor,
-              boxShadow: `0 0 2.5rem ${theme.accent}66`,
-            }}
-            aria-hidden
-          >
-            {effect.emoji}
-          </span>
-
           {greeting.photo && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={greeting.photo}
               alt={greeting.name ? `${greeting.name} fotoğrafı` : "Sürpriz fotoğrafı"}
-              className="absolute z-10 h-36 w-36 rounded-full border-4 border-white/40 object-cover shadow-2xl"
+              className="absolute z-10 rounded-full border-4 border-white/40 object-cover"
               style={{
                 left: `${photoPos.x}%`,
                 top: `${photoPos.y}%`,
+                width: `calc(9rem * ${photoScale})`,
+                height: `calc(9rem * ${photoScale})`,
                 transform: "translate(-50%, -50%)",
                 boxShadow: `0 0 3rem ${theme.accent}55`,
               }}
@@ -94,14 +129,15 @@ export default function GreetingAnimation({
               left: `${textPos.x}%`,
               top: `${textPos.y}%`,
               transform: "translate(-50%, -50%)",
+              fontSize: `${2.25 * fontSize}rem`,
             }}
           >
             {greeting.name && (
-              <h1 className="text-4xl font-bold leading-tight sm:text-5xl">
+              <h1 className="text-[1em] font-bold leading-tight">
                 {greeting.name}
               </h1>
             )}
-            <p className="mt-3 text-lg leading-relaxed opacity-90 sm:text-xl">
+            <p className="mt-3 text-[0.5em] leading-relaxed opacity-90">
               {message}
             </p>
             {greeting.video && (
@@ -111,8 +147,12 @@ export default function GreetingAnimation({
                 playsInline
                 muted
                 preload="metadata"
-                className="mx-auto mt-4 w-full max-w-xs rounded-2xl border-4 border-white/40 bg-black shadow-2xl"
-                style={{ boxShadow: `0 0 3rem ${theme.accent}55` }}
+                className="mx-auto mt-4 rounded-2xl border-4 border-white/40 bg-black shadow-2xl"
+                style={{
+                  width: `calc(20rem * ${videoScale})`,
+                  maxWidth: "100%",
+                  boxShadow: `0 0 3rem ${theme.accent}55`,
+                }}
               >
                 Tarayıcın videoyu desteklemiyor.
               </video>

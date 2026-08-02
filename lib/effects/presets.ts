@@ -2,19 +2,20 @@ import type { EffectConfig, EffectId } from "@/lib/effects/types";
 import type { TemplateId } from "@/lib/types";
 
 export const EFFECTS: Record<EffectId, EffectConfig> = {
-  // ---- Çiçek açma (bloom-spiral, katmanlı) ----
+  // ---- Çiçek açma (bloom-spiral, Phyllotaxis: Altın Açı + sqrt) ----
   rose: {
     id: "rose",
     label: "Gül",
     emoji: "🌹",
     category: "bloom",
     particleShape: "petal",
-    particleCount: 40,
+    particleCount: 450,
     colorPalette: ["#e0396b", "#ff7aa2", "#ffc2d4"],
     motionPattern: "bloom-spiral",
     layerCount: 4,
-    timing: { duration: 1.8, stagger: 0.05, ease: "power2.out" },
-    spread: 52,
+    timing: { duration: 1.8, stagger: 0.008, ease: "power2.out" },
+    spread: 42,
+    size: 13,
   },
   peony: {
     id: "peony",

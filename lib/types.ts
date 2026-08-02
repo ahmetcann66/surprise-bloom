@@ -22,6 +22,19 @@ export interface Template {
 export interface Position {
   x: number;
   y: number;
+  /** Fotoğraf için boyut çarpanı (1 = varsayılan). */
+  scale?: number;
+  /** Yazı için font-size yüzdesi (1 = varsayılan). */
+  fontSize?: number;
+}
+
+export interface EffectPlacement {
+  id: string;
+  /** Efekt başlangıç noktası, ekran yüzdesi (varsayılan 50/50 = orta). */
+  x?: number;
+  y?: number;
+  /** Bu efektin boyut çarpanı (1 = varsayılan). */
+  scale?: number;
 }
 
 export interface Greeting {
@@ -34,9 +47,14 @@ export interface Greeting {
   photo?: string;
   video?: string;
   position?: "top" | "center" | "bottom";
+  /** Eski tek-efekt alanı (legacy); yeni kayıtlarda ilk efekti tutar. */
   effect?: string;
+  /** Çoklu efekt yerleşimi (yoksa `effect`'e geri düşer). */
+  effects?: EffectPlacement[];
   photoPos?: Position;
   textPos?: Position;
+  effectScale?: number;
+  videoScale?: number;
   createdAt: string;
 }
 
@@ -50,8 +68,11 @@ export interface CreateGreetingInput {
   video?: string;
   position?: "top" | "center" | "bottom";
   effect?: string;
+  effects?: EffectPlacement[];
   photoPos?: Position;
   textPos?: Position;
+  effectScale?: number;
+  videoScale?: number;
 }
 
 // Ses: hazır klip (clip) veya kullanıcı kaydı (recording).

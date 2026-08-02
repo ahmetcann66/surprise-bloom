@@ -1,11 +1,13 @@
 import { customAlphabet } from "nanoid";
 import type {
   CreateGreetingInput,
+  EffectPlacement,
   Greeting,
   GreetingAudio,
   Position,
 } from "@/lib/types";
 import { getPalette, getTemplate } from "@/lib/templates";
+import { hasEffect } from "@/lib/effects/presets";
 import { supabase } from "@/lib/supabase";
 
 // Veri katmanı.
@@ -39,8 +41,11 @@ interface GreetingRow {
   video: string | null;
   position: string | null;
   effect: string | null;
+  effects: unknown;
   photo_pos: unknown;
   text_pos: unknown;
+  effect_scale: unknown;
+  video_scale: unknown;
   created_at: string;
 }
 
@@ -61,9 +66,56 @@ function parsePosition(value: unknown): Position | undefined {
   ) {
     const x = Math.min(95, Math.max(5, (parsed as Position).x));
     const y = Math.min(95, Math.max(5, (parsed as Position).y));
-    return { x, y };
+    const scale = (parsed as Position).scale;
+    const fontSize = (parsed as Position).fontSize;
+    return {
+      x,
+      y,
+      ...(typeof scale === "number" && Number.isFinite(scale)
+        ? { scale: Math.min(3, Math.max(0.4, scale)) }
+        : {}),
+      ...(typeof fontSize === "number" && Number.isFinite(fontSize)
+        ? { fontSize: Math.min(2, Math.max(0.5, fontSize)) }
+        : {}),
+    };
   }
   return undefined;
+}
+
+function parseEffects(value: unknown): EffectPlacement[] | undefined {
+  let parsed: unknown = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
+  if (!Array.isArray(parsed)) return undefined;
+  const placements: EffectPlacement[] = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") continue;
+    const { id, x, y, scale } = item as {
+      id?: unknown;
+      x?: unknown;
+      y?: unknown;
+      scale?: unknown;
+    };
+    if (typeof id !== "string" || !hasEffect(id)) continue;
+    placements.push({
+      id,
+      ...(typeof x === "number" && Number.isFinite(x)
+        ? { x: Math.min(95, Math.max(5, x)) }
+        : {}),
+      ...(typeof y === "number" && Number.isFinite(y)
+        ? { y: Math.min(95, Math.max(5, y)) }
+        : {}),
+      ...(typeof scale === "number" && Number.isFinite(scale)
+        ? { scale: Math.min(3, Math.max(0.4, scale)) }
+        : {}),
+    });
+  }
+  return placements.length > 0 ? placements : undefined;
 }
 
 function parseAudio(value: unknown): GreetingAudio | undefined {
@@ -106,8 +158,17 @@ function rowToGreeting(row: GreetingRow): Greeting {
         ? row.position
         : "center",
     effect: row.effect ?? undefined,
+    effects: parseEffects(row.effects),
     photoPos: parsePosition(row.photo_pos),
     textPos: parsePosition(row.text_pos),
+    effectScale:
+      typeof row.effect_scale === "number" && Number.isFinite(row.effect_scale)
+        ? Math.min(3, Math.max(0.4, row.effect_scale))
+        : undefined,
+    videoScale:
+      typeof row.video_scale === "number" && Number.isFinite(row.video_scale)
+        ? Math.min(3, Math.max(0.4, row.video_scale))
+        : undefined,
     createdAt: row.created_at,
   };
 }
@@ -132,9 +193,26 @@ export async function createMessage(
     photo: input.photo?.slice(0, 1_000_000) || null,
     video: input.video?.slice(0, 4_000_000) || null,
     position: input.position ?? "center",
-    effect: input.effect ?? null,
+    effect:
+      input.effects && input.effects.length > 0
+        ? input.effects[0].id
+        : input.effect ?? null,
+    effects: input.effects?.length
+      ? JSON.stringify(
+          input.effects.map((e) => ({
+            id: e.id,
+            x: e.x ?? 50,
+            y: e.y ?? 50,
+            scale: e.scale ?? 1,
+          })),
+        )
+      : null,
     photo_pos: input.photoPos ? JSON.stringify(input.photoPos) : null,
     text_pos: input.textPos ? JSON.stringify(input.textPos) : null,
+    effect_scale:
+      typeof input.effectScale === "number" ? input.effectScale : null,
+    video_scale:
+      typeof input.videoScale === "number" ? input.videoScale : null,
   };
 
   if (supabase) {
@@ -144,7 +222,7 @@ export async function createMessage(
       .select()
       .single();
     if (error) {
-      throw new Error("Mesaj veritabanına kaydedilemedi.");
+      throw new Error(`Mesaj veritabanına kaydedilemedi. (${error.message})`);
     }
     return rowToGreeting(data as GreetingRow);
   }
@@ -159,9 +237,12 @@ export async function createMessage(
     photo: input.photo,
     video: input.video,
     position: row.position as "top" | "center" | "bottom",
-    effect: input.effect,
+    effect: input.effects?.length ? input.effects[0].id : input.effect,
+    effects: input.effects,
     photoPos: input.photoPos,
     textPos: input.textPos,
+    effectScale: input.effectScale,
+    videoScale: input.videoScale,
     createdAt: new Date().toISOString(),
   };
   fallbackStore.set(greeting.id, greeting);

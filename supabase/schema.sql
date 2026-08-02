@@ -12,8 +12,11 @@ create table if not exists public.greetings (
   video text,
   position text,
   effect text,
+  effects jsonb,
   photo_pos jsonb,
   text_pos jsonb,
+  effect_scale real,
+  video_scale real,
   created_at timestamptz not null default now()
 );
 
@@ -24,8 +27,11 @@ alter table public.greetings add column if not exists photo text;
 alter table public.greetings add column if not exists video text;
 alter table public.greetings add column if not exists position text;
 alter table public.greetings add column if not exists effect text;
+alter table public.greetings add column if not exists effects jsonb;
 alter table public.greetings add column if not exists photo_pos jsonb;
 alter table public.greetings add column if not exists text_pos jsonb;
+alter table public.greetings add column if not exists effect_scale real;
+alter table public.greetings add column if not exists video_scale real;
 
 -- İsim artık zorunlu değil (eski tablolarda NOT NULL olabilir)
 alter table public.greetings alter column name drop not null;
@@ -34,10 +40,13 @@ alter table public.greetings enable row level security;
 
 -- Anon anahtarı: herkes mesaj oluşturabilmeli (insert) ve okuyabilmeli (select).
 -- Güncelleme/silme kasıtlı olarak kapalı.
+-- Drop-if-exists: SQL'i tekrar çalıştırırsan "policy already exists" hatası vermesin.
+drop policy if exists "anon_greetings_insert" on public.greetings;
 create policy "anon_greetings_insert" on public.greetings
   for insert to anon
   with check (true);
 
+drop policy if exists "anon_greetings_select" on public.greetings;
 create policy "anon_greetings_select" on public.greetings
   for select to anon
   using (true);

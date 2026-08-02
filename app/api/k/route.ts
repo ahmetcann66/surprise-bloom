@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createMessage } from "@/lib/store";
 import { getClip } from "@/lib/clips";
 import { hasEffect } from "@/lib/effects/presets";
-import type { GreetingAudio, Position } from "@/lib/types";
+import type { EffectPlacement, GreetingAudio, Position } from "@/lib/types";
 
 function parsePos(raw: unknown): Position | undefined {
   if (
@@ -15,7 +15,46 @@ function parsePos(raw: unknown): Position | undefined {
   }
   const x = Math.min(95, Math.max(5, (raw as Position).x));
   const y = Math.min(95, Math.max(5, (raw as Position).y));
-  return { x, y };
+  const scale = (raw as Position).scale;
+  const fontSize = (raw as Position).fontSize;
+  return {
+    x,
+    y,
+    ...(typeof scale === "number" && Number.isFinite(scale)
+      ? { scale: Math.min(3, Math.max(0.4, scale)) }
+      : {}),
+    ...(typeof fontSize === "number" && Number.isFinite(fontSize)
+      ? { fontSize: Math.min(2, Math.max(0.5, fontSize)) }
+      : {}),
+  };
+}
+
+function parseEffects(raw: unknown): EffectPlacement[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const placements: EffectPlacement[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const { id, x, y, scale } = item as {
+      id?: unknown;
+      x?: unknown;
+      y?: unknown;
+      scale?: unknown;
+    };
+    if (typeof id !== "string" || !hasEffect(id)) continue;
+    placements.push({
+      id,
+      ...(typeof x === "number" && Number.isFinite(x)
+        ? { x: Math.min(95, Math.max(5, x)) }
+        : {}),
+      ...(typeof y === "number" && Number.isFinite(y)
+        ? { y: Math.min(95, Math.max(5, y)) }
+        : {}),
+      ...(typeof scale === "number" && Number.isFinite(scale)
+        ? { scale: Math.min(3, Math.max(0.4, scale)) }
+        : {}),
+    });
+  }
+  return placements.length > 0 ? placements : undefined;
 }
 
 function parseAudio(raw: unknown): GreetingAudio | undefined {
@@ -42,14 +81,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
 
-  const { template, name, message, position, effect, photoPos, textPos, audio, photo, video } = (body ?? {}) as {
+  const { template, name, message, position, effect, effects, photoPos, textPos, effectScale, videoScale, audio, photo, video } = (body ?? {}) as {
     template?: string;
     name?: string;
     message?: string;
     position?: string;
     effect?: string;
+    effects?: unknown;
     photoPos?: unknown;
     textPos?: unknown;
+    effectScale?: unknown;
+    videoScale?: unknown;
     audio?: unknown;
     photo?: unknown;
     video?: unknown;
@@ -90,6 +132,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const parsedEffects = parseEffects(effects);
+  if (
+    effects !== undefined &&
+    effects !== null &&
+    (!Array.isArray(effects) || (effects.length > 0 && !parsedEffects))
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz efekt seçimi." },
+      { status: 400 },
+    );
+  }
+
   if (photoPos !== undefined && photoPos !== null && !parsePos(photoPos)) {
     return NextResponse.json(
       { error: "Geçersiz fotoğraf konumu." },
@@ -100,6 +154,28 @@ export async function POST(request: Request) {
   if (textPos !== undefined && textPos !== null && !parsePos(textPos)) {
     return NextResponse.json(
       { error: "Geçersiz yazı konumu." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    effectScale !== undefined &&
+    effectScale !== null &&
+    (typeof effectScale !== "number" || !Number.isFinite(effectScale))
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz efekt ölçeği." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    videoScale !== undefined &&
+    videoScale !== null &&
+    (typeof videoScale !== "number" || !Number.isFinite(videoScale))
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz video ölçeği." },
       { status: 400 },
     );
   }
@@ -137,8 +213,13 @@ export async function POST(request: Request) {
       message: typeof message === "string" ? message : undefined,
       position: parsedPosition,
       effect: typeof effect === "string" ? effect : undefined,
+      effects: parsedEffects,
       photoPos: parsePos(photoPos),
       textPos: parsePos(textPos),
+      effectScale:
+        typeof effectScale === "number" ? Math.min(3, Math.max(0.4, effectScale)) : undefined,
+      videoScale:
+        typeof videoScale === "number" ? Math.min(3, Math.max(0.4, videoScale)) : undefined,
       audio: parsedAudio,
       photo: typeof photo === "string" ? photo : undefined,
       video: typeof video === "string" ? video : undefined,
