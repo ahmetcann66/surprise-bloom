@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   EffectConfig,
   MotionPattern,
   ParticleShape,
 } from "@/lib/effects/types";
+import type { EffectRepeat } from "@/lib/types";
 
 const EMOJI_SHAPES: Partial<Record<ParticleShape, string>> = {
   balloon: "🎈",
@@ -288,6 +289,12 @@ interface EffectStageProps {
   reducedMotion: boolean;
   /** Efekt başlangıç noktası, ekran yüzdesi (varsayılan orta). */
   origin?: { x: number; y: number };
+  /** Hız çarpanı (1 = varsayılan; >1 daha hızlı). */
+  speed?: number;
+  /** Tekrar modu (yoksa preset'in timing.loop değeri kullanılır). */
+  repeat?: EffectRepeat;
+  /** repeat === "every" iken tekrarlama aralığı, saniye. */
+  repeatEvery?: number;
 }
 
 export default function EffectStage({
@@ -295,12 +302,25 @@ export default function EffectStage({
   active,
   reducedMotion,
   origin = { x: 50, y: 50 },
+  speed = 1,
+  repeat,
+  repeatEvery = 15,
 }: EffectStageProps) {
   const particles = useMemo(() => generate(config), [config]);
+  const [runId, setRunId] = useState(0);
+
+  useEffect(() => {
+    if (repeat !== "every" || !active) return;
+    const ms = Math.min(120, Math.max(3, repeatEvery)) * 1000;
+    const timer = setInterval(() => setRunId((r) => r + 1), ms);
+    return () => clearInterval(timer);
+  }, [repeat, repeatEvery, active]);
+
   if (!active || reducedMotion) return null;
 
   const ease = EASE_MAP[config.timing.ease] ?? EASE_MAP["power2.out"];
   const loop = Boolean(config.timing.loop);
+  const effRepeat = repeat ?? (loop ? "loop" : "once");
   const radial =
     config.motionPattern === "bloom-spiral" ||
     config.motionPattern === "burst-radial" ||
@@ -315,9 +335,11 @@ export default function EffectStage({
   const clampP = (v: number) => Math.min(95, Math.max(5, v));
   const spreadP = (v: number) => clampP(origin.x + (v - 50));
   const spreadTop = (v: number) => clampP(origin.y + (v - 50));
+  const inv = speed > 0 ? 1 / speed : 1;
 
   return (
     <div
+      key={runId}
       aria-hidden
       className="pointer-events-none absolute inset-0 z-[1] isolate overflow-hidden"
     >
@@ -332,9 +354,9 @@ export default function EffectStage({
         const base: React.CSSProperties = {
           position: "absolute",
           animationName: name,
-          animationDuration: `${p.duration}s`,
-          animationDelay: `${p.delay}s`,
-          animationIterationCount: loop ? "infinite" : 1,
+          animationDuration: `${p.duration * inv}s`,
+          animationDelay: `${p.delay * inv}s`,
+          animationIterationCount: effRepeat === "loop" ? "infinite" : 1,
           animationFillMode: "both",
           animationTimingFunction: ease,
         };
@@ -343,7 +365,7 @@ export default function EffectStage({
           base.top = `${origin.y}%`;
           base.marginLeft = -p.size / 2;
           base.marginTop = -p.size / 2;
-          base.animationDuration = `${p.duration}s`;
+          base.animationDuration = `${p.duration * inv}s`;
           (base as Record<string, unknown>)["--ang"] = `${p.ang}deg`;
           (base as Record<string, unknown>)["--dist"] = `${p.dist}vmin`;
           (base as Record<string, unknown>)["--spin"] = `${spinVar}deg`;

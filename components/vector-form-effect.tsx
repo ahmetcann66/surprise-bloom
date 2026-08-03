@@ -8,6 +8,7 @@ import {
   type VFLeaf,
 } from "@/lib/effects/flowers";
 import type { EffectConfig } from "@/lib/effects/types";
+import type { EffectRepeat } from "@/lib/types";
 
 interface VectorFormEffectProps {
   config: EffectConfig;
@@ -16,6 +17,12 @@ interface VectorFormEffectProps {
   scale?: number;
   /** Çiçek merkezinin başlangıç noktası, ekran yüzdesi (varsayılan orta). */
   position?: { x: number; y: number };
+  /** Hız çarpanı (1 = varsayılan; >1 daha hızlı). */
+  speed?: number;
+  /** Tekrar modu (varsayılan: bir kez). */
+  repeat?: EffectRepeat;
+  /** repeat === "every" iken tekrarlama aralığı, saniye. */
+  repeatEvery?: number;
 }
 
 function renderDef(def: GradientDef) {
@@ -48,6 +55,9 @@ export default function VectorFormEffect({
   reducedMotion,
   scale = 1,
   position,
+  speed = 1,
+  repeat,
+  repeatEvery = 15,
 }: VectorFormEffectProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const rootRef = useRef<SVGGElement>(null);
@@ -177,11 +187,27 @@ export default function VectorFormEffect({
       tl.to(root, { rotation: 0, duration: 0.3, ease: "sine.inOut" }, ">");
     }
 
+    if (speed > 0) tl.timeScale(speed);
+
+    const effRepeat = repeat ?? "once";
+    let timer: ReturnType<typeof setInterval> | undefined;
+    if (effRepeat === "loop") {
+      tl.repeat(-1);
+      setReady(true);
+    } else if (effRepeat === "every") {
+      setReady(true);
+      timer = setInterval(
+        () => tl.restart(true),
+        Math.min(120, Math.max(3, repeatEvery)) * 1000,
+      );
+    }
+
     return () => {
+      if (timer) clearInterval(timer);
       tl.kill();
       setReady(false);
     };
-  }, [active, reducedMotion, flower]);
+  }, [active, reducedMotion, flower, speed, repeat, repeatEvery]);
 
   const width = flower.size * scale;
   const clipId = `vf-${flower.id}-clip`;

@@ -8,6 +8,7 @@ import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
 import { getEffect } from "@/lib/effects/presets";
 import { isVectorFlower } from "@/lib/effects/flowers";
+import { TEXT_FONTS, getTextFont } from "@/lib/fonts";
 
 export interface Pos {
   x: number;
@@ -26,6 +27,10 @@ interface LayoutEditorProps {
   photoPos: Pos;
   textPos: Pos;
   videoScale: number;
+  animationSpeed: number;
+  textFont: string;
+  onSpeedChange: (v: number) => void;
+  onFontChange: (f: string) => void;
   onChange: (
     photoPos: Pos,
     textPos: Pos,
@@ -46,9 +51,10 @@ interface ScaleSliderProps {
   min: number;
   max: number;
   onChange: (v: number) => void;
+  display?: (v: number) => string;
 }
 
-function ScaleSlider({ id, label, value, min, max, onChange }: ScaleSliderProps) {
+function ScaleSlider({ id, label, value, min, max, onChange, display }: ScaleSliderProps) {
   return (
     <div>
       <div className="flex items-center justify-between">
@@ -59,7 +65,7 @@ function ScaleSlider({ id, label, value, min, max, onChange }: ScaleSliderProps)
           {label}
         </label>
         <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-          %{Math.round(value * 100)}
+          {display ? display(value) : `%${Math.round(value * 100)}`}
         </span>
       </div>
       <input
@@ -86,6 +92,10 @@ export default function LayoutEditor({
   photoPos,
   textPos,
   videoScale,
+  animationSpeed,
+  textFont,
+  onSpeedChange,
+  onFontChange,
   onChange,
 }: LayoutEditorProps) {
   const [device, setDevice] = useState<"phone" | "desktop">("phone");
@@ -267,6 +277,9 @@ export default function LayoutEditor({
                 reducedMotion={false}
                 scale={scale}
                 position={pos}
+                speed={ep.speed ?? animationSpeed}
+                repeat={ep.repeat}
+                repeatEvery={ep.repeatEvery}
               />
             );
           }
@@ -284,6 +297,9 @@ export default function LayoutEditor({
                 active={opened}
                 reducedMotion={false}
                 origin={pos}
+                speed={ep.speed ?? animationSpeed}
+                repeat={ep.repeat}
+                repeatEvery={ep.repeatEvery}
               />
             </div>
           );
@@ -366,6 +382,7 @@ export default function LayoutEditor({
             top: `${textPos.y}%`,
             transform: "translate(-50%, -50%)",
             fontSize: `${1.5 * fontSize}rem`,
+            fontFamily: getTextFont(textFont),
           }}
         >
           <p className="text-[1em] font-bold leading-tight">
@@ -409,6 +426,31 @@ export default function LayoutEditor({
       </div>
 
       <div className="mt-3 space-y-4 rounded-xl border border-zinc-200 p-3 dark:border-zinc-800">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+            Yazı stili
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {TEXT_FONTS.map((f) => {
+              const active = textFont === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => onFontChange(f.id)}
+                  className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
+                    active
+                      ? "border-pink-500 ring-2 ring-pink-500/30"
+                      : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                  }`}
+                  style={{ fontFamily: f.family }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <ScaleSlider
             id="photo-scale"
@@ -434,6 +476,15 @@ export default function LayoutEditor({
             max={2.5}
             onChange={(v) => onChange(photoPos, textPos, v, effects)}
           />
+          <ScaleSlider
+            id="animation-speed"
+            label="Animasyon hızı"
+            value={animationSpeed}
+            min={0.4}
+            max={3}
+            onChange={onSpeedChange}
+            display={(v) => `×${v.toFixed(2)}`}
+          />
         </div>
         {effects.length > 0 && (
           <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
@@ -444,6 +495,13 @@ export default function LayoutEditor({
               {effects.map((ep, index) => {
                 const cfg = getEffect(ep.id);
                 const val = ep.scale ?? 1;
+                const patch = (p: Partial<EffectPlacement>) =>
+                  onChange(
+                    photoPos,
+                    textPos,
+                    videoScale,
+                    effects.map((x, i) => (i === index ? { ...x, ...p } : x)),
+                  );
                 return (
                   <div key={ep.id}>
                     <div className="flex items-center justify-between">
@@ -462,19 +520,75 @@ export default function LayoutEditor({
                       step={0.05}
                       value={val}
                       onChange={(e) =>
-                        onChange(
-                          photoPos,
-                          textPos,
-                          videoScale,
-                          effects.map((x, i) =>
-                            i === index
-                              ? { ...x, scale: Number.parseFloat(e.target.value) }
-                              : x,
-                          ),
-                        )
+                        patch({ scale: Number.parseFloat(e.target.value) })
                       }
                       className="mt-2 w-full accent-pink-500"
                     />
+                    <div className="mt-1.5 flex items-center justify-between">
+                      <label
+                        htmlFor={`effect-speed-${ep.id}`}
+                        className="text-[11px] text-zinc-500 dark:text-zinc-400"
+                      >
+                        Hız
+                      </label>
+                      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                        ×{(ep.speed ?? animationSpeed).toFixed(2)}
+                      </span>
+                    </div>
+                    <input
+                      id={`effect-speed-${ep.id}`}
+                      type="range"
+                      min={0.4}
+                      max={3}
+                      step={0.05}
+                      value={ep.speed ?? animationSpeed}
+                      onChange={(e) =>
+                        patch({ speed: Number.parseFloat(e.target.value) })
+                      }
+                      className="mt-1 w-full accent-pink-500"
+                    />
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <select
+                        aria-label={`${cfg.label} tekrar modu`}
+                        value={ep.repeat ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          patch(
+                            v === ""
+                              ? { repeat: undefined, repeatEvery: undefined }
+                              : { repeat: v as EffectPlacement["repeat"] },
+                          );
+                        }}
+                        className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors focus:border-pink-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                      >
+                        <option value="">Varsayılan</option>
+                        <option value="once">Bir kez</option>
+                        <option value="loop">Sürekli</option>
+                        <option value="every">Her N sn'de</option>
+                      </select>
+                      {ep.repeat === "every" && (
+                        <label className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
+                          her
+                          <input
+                            type="number"
+                            min={3}
+                            max={120}
+                            step={1}
+                            value={ep.repeatEvery ?? 15}
+                            onChange={(e) =>
+                              patch({
+                                repeatEvery: Math.min(
+                                  120,
+                                  Math.max(3, Number(e.target.value) || 15),
+                                ),
+                              })
+                            }
+                            className="w-14 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors focus:border-pink-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                          />
+                          saniyede bir
+                        </label>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -495,19 +609,21 @@ export default function LayoutEditor({
         photoScale !== 1 ||
         fontSize !== 1 ||
         videoScale !== 1 ||
+        textFont !== "system" ||
         effects.some(
           (e) => e.x !== 50 || e.y !== 50 || (e.scale ?? 1) !== 1,
         )) && (
         <button
           type="button"
-          onClick={() =>
+          onClick={() => {
+            onFontChange("system");
             onChange(
               { x: 50, y: 50, scale: 1 },
               { x: 50, y: 75, fontSize: 1 },
               1,
               effects.map((e) => ({ ...e, x: 50, y: 50, scale: 1 })),
-            )
-          }
+            );
+          }}
           className="mt-2 w-full text-center text-xs text-zinc-500 underline-offset-4 hover:underline"
         >
           Konum ve boyutları sıfırla

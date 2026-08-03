@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createMessage } from "@/lib/store";
 import { getClip } from "@/lib/clips";
 import { hasEffect } from "@/lib/effects/presets";
+import { getTemplate } from "@/lib/templates";
+import { TEXT_FONTS } from "@/lib/fonts";
 import type { EffectPlacement, GreetingAudio, Position } from "@/lib/types";
 
 function parsePos(raw: unknown): Position | undefined {
@@ -34,13 +36,20 @@ function parseEffects(raw: unknown): EffectPlacement[] | undefined {
   const placements: EffectPlacement[] = [];
   for (const item of raw) {
     if (!item || typeof item !== "object") continue;
-    const { id, x, y, scale } = item as {
+    const { id, x, y, scale, speed, repeat, repeatEvery } = item as {
       id?: unknown;
       x?: unknown;
       y?: unknown;
       scale?: unknown;
+      speed?: unknown;
+      repeat?: unknown;
+      repeatEvery?: unknown;
     };
     if (typeof id !== "string" || !hasEffect(id)) continue;
+    const parsedRepeat =
+      repeat === "once" || repeat === "loop" || repeat === "every"
+        ? repeat
+        : undefined;
     placements.push({
       id,
       ...(typeof x === "number" && Number.isFinite(x)
@@ -51,6 +60,15 @@ function parseEffects(raw: unknown): EffectPlacement[] | undefined {
         : {}),
       ...(typeof scale === "number" && Number.isFinite(scale)
         ? { scale: Math.min(3, Math.max(0.4, scale)) }
+        : {}),
+      ...(typeof speed === "number" && Number.isFinite(speed)
+        ? { speed: Math.min(3, Math.max(0.4, speed)) }
+        : {}),
+      ...(parsedRepeat ? { repeat: parsedRepeat } : {}),
+      ...(parsedRepeat === "every" &&
+      typeof repeatEvery === "number" &&
+      Number.isFinite(repeatEvery)
+        ? { repeatEvery: Math.min(120, Math.max(3, repeatEvery)) }
         : {}),
     });
   }
@@ -81,8 +99,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
 
-  const { template, name, message, position, effect, effects, photoPos, textPos, effectScale, videoScale, audio, photo, video } = (body ?? {}) as {
+  const { template, paletteId, name, message, position, effect, effects, photoPos, textPos, effectScale, videoScale, animationSpeed, textFont, audio, photo, video } = (body ?? {}) as {
     template?: string;
+    paletteId?: unknown;
     name?: string;
     message?: string;
     position?: string;
@@ -92,6 +111,8 @@ export async function POST(request: Request) {
     textPos?: unknown;
     effectScale?: unknown;
     videoScale?: unknown;
+    animationSpeed?: unknown;
+    textFont?: unknown;
     audio?: unknown;
     photo?: unknown;
     video?: unknown;
@@ -102,6 +123,29 @@ export async function POST(request: Request) {
       { error: "Şablon seçimi eksik." },
       { status: 400 },
     );
+  }
+
+  if (paletteId !== undefined && paletteId !== null) {
+    const t = getTemplate(template as Parameters<typeof createMessage>[0]["template"]);
+    if (
+      typeof paletteId !== "string" ||
+      !t ||
+      !t.palettes.some((p) => p.id === paletteId)
+    ) {
+      return NextResponse.json(
+        { error: "Geçersiz renk paleti." },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (textFont !== undefined && textFont !== null) {
+    if (typeof textFont !== "string" || !TEXT_FONTS.some((f) => f.id === textFont)) {
+      return NextResponse.json(
+        { error: "Geçersiz yazı stili." },
+        { status: 400 },
+      );
+    }
   }
 
   const parsedAudio = parseAudio(audio);
@@ -181,6 +225,17 @@ export async function POST(request: Request) {
   }
 
   if (
+    animationSpeed !== undefined &&
+    animationSpeed !== null &&
+    (typeof animationSpeed !== "number" || !Number.isFinite(animationSpeed))
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz animasyon hızı." },
+      { status: 400 },
+    );
+  }
+
+  if (
     photo !== undefined &&
     photo !== null &&
     (typeof photo !== "string" ||
@@ -209,6 +264,7 @@ export async function POST(request: Request) {
   try {
     const greeting = await createMessage({
       template: template as Parameters<typeof createMessage>[0]["template"],
+      paletteId: typeof paletteId === "string" ? paletteId : undefined,
       name: typeof name === "string" && name.trim() ? name.trim() : undefined,
       message: typeof message === "string" ? message : undefined,
       position: parsedPosition,
@@ -220,6 +276,11 @@ export async function POST(request: Request) {
         typeof effectScale === "number" ? Math.min(3, Math.max(0.4, effectScale)) : undefined,
       videoScale:
         typeof videoScale === "number" ? Math.min(3, Math.max(0.4, videoScale)) : undefined,
+      animationSpeed:
+        typeof animationSpeed === "number"
+          ? Math.min(3, Math.max(0.4, animationSpeed))
+          : undefined,
+      textFont: typeof textFont === "string" ? textFont : undefined,
       audio: parsedAudio,
       photo: typeof photo === "string" ? photo : undefined,
       video: typeof video === "string" ? video : undefined,

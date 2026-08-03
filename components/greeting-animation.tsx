@@ -9,6 +9,7 @@ import VectorFormEffect from "@/components/vector-form-effect";
 import EffectStage from "@/lib/effects/engine";
 import { getEffect } from "@/lib/effects/presets";
 import { isVectorFlower } from "@/lib/effects/flowers";
+import { getTextFont } from "@/lib/fonts";
 
 interface GreetingAnimationProps {
   greeting: Greeting;
@@ -44,6 +45,7 @@ export default function GreetingAnimation({
   const textPos = greeting.textPos ?? { x: 50, y: 70 };
   const effectScale = greeting.effectScale ?? 1;
   const videoScale = greeting.videoScale ?? 1;
+  const animationSpeed = greeting.animationSpeed ?? 1;
   const photoScale = photoPos.scale ?? 1;
   const fontSize = textPos.fontSize ?? 1;
 
@@ -63,9 +65,12 @@ export default function GreetingAnimation({
               config={cfg}
               active={opened}
               reducedMotion={reducedMotion}
-              scale={scale}
-              position={pos}
-            />
+                scale={scale}
+                position={pos}
+                speed={placement.speed ?? animationSpeed}
+                repeat={placement.repeat}
+                repeatEvery={placement.repeatEvery}
+              />
           );
         }
         return (
@@ -82,6 +87,9 @@ export default function GreetingAnimation({
               active={opened}
               reducedMotion={reducedMotion}
               origin={pos}
+              speed={placement.speed ?? animationSpeed}
+              repeat={placement.repeat}
+              repeatEvery={placement.repeatEvery}
             />
           </div>
         );
@@ -130,6 +138,7 @@ export default function GreetingAnimation({
               top: `${textPos.y}%`,
               transform: "translate(-50%, -50%)",
               fontSize: `${2.25 * fontSize}rem`,
+              fontFamily: getTextFont(greeting.textFont),
             }}
           >
             {greeting.name && (

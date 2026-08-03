@@ -46,6 +46,8 @@ interface GreetingRow {
   text_pos: unknown;
   effect_scale: unknown;
   video_scale: unknown;
+  animation_speed: unknown;
+  text_font: string | null;
   created_at: string;
 }
 
@@ -95,13 +97,20 @@ function parseEffects(value: unknown): EffectPlacement[] | undefined {
   const placements: EffectPlacement[] = [];
   for (const item of parsed) {
     if (!item || typeof item !== "object") continue;
-    const { id, x, y, scale } = item as {
+    const { id, x, y, scale, speed, repeat, repeatEvery } = item as {
       id?: unknown;
       x?: unknown;
       y?: unknown;
       scale?: unknown;
+      speed?: unknown;
+      repeat?: unknown;
+      repeatEvery?: unknown;
     };
     if (typeof id !== "string" || !hasEffect(id)) continue;
+    const parsedRepeat =
+      repeat === "once" || repeat === "loop" || repeat === "every"
+        ? repeat
+        : undefined;
     placements.push({
       id,
       ...(typeof x === "number" && Number.isFinite(x)
@@ -112,6 +121,15 @@ function parseEffects(value: unknown): EffectPlacement[] | undefined {
         : {}),
       ...(typeof scale === "number" && Number.isFinite(scale)
         ? { scale: Math.min(3, Math.max(0.4, scale)) }
+        : {}),
+      ...(typeof speed === "number" && Number.isFinite(speed)
+        ? { speed: Math.min(3, Math.max(0.4, speed)) }
+        : {}),
+      ...(parsedRepeat ? { repeat: parsedRepeat } : {}),
+      ...(parsedRepeat === "every" &&
+      typeof repeatEvery === "number" &&
+      Number.isFinite(repeatEvery)
+        ? { repeatEvery: Math.min(120, Math.max(3, repeatEvery)) }
         : {}),
     });
   }
@@ -169,6 +187,12 @@ function rowToGreeting(row: GreetingRow): Greeting {
       typeof row.video_scale === "number" && Number.isFinite(row.video_scale)
         ? Math.min(3, Math.max(0.4, row.video_scale))
         : undefined,
+    animationSpeed:
+      typeof row.animation_speed === "number" &&
+      Number.isFinite(row.animation_speed)
+        ? Math.min(3, Math.max(0.4, row.animation_speed))
+        : undefined,
+    textFont: row.text_font ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -204,6 +228,11 @@ export async function createMessage(
             x: e.x ?? 50,
             y: e.y ?? 50,
             scale: e.scale ?? 1,
+            ...(typeof e.speed === "number" ? { speed: e.speed } : {}),
+            ...(e.repeat ? { repeat: e.repeat } : {}),
+            ...(e.repeat === "every"
+              ? { repeatEvery: e.repeatEvery ?? 15 }
+              : {}),
           })),
         )
       : null,
@@ -213,6 +242,12 @@ export async function createMessage(
       typeof input.effectScale === "number" ? input.effectScale : null,
     video_scale:
       typeof input.videoScale === "number" ? input.videoScale : null,
+    // animation_speed + text_font kolonları schema.sql güncellemesiyle geliyor;
+    // yokken insert'i bozmamak için yalnızca değer geldiğinde gönderiyoruz.
+    ...(typeof input.animationSpeed === "number"
+      ? { animation_speed: input.animationSpeed }
+      : {}),
+    ...(typeof input.textFont === "string" ? { text_font: input.textFont } : {}),
   };
 
   if (supabase) {
@@ -243,6 +278,8 @@ export async function createMessage(
     textPos: input.textPos,
     effectScale: input.effectScale,
     videoScale: input.videoScale,
+    animationSpeed: input.animationSpeed,
+    textFont: input.textFont,
     createdAt: new Date().toISOString(),
   };
   fallbackStore.set(greeting.id, greeting);

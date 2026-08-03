@@ -1,5 +1,24 @@
 # surprise-bloom — Kalıcı Bellek
 
+## ⚠️ Git Durumu (kritik — 03.08.2026)
+- GitHub Desktop main'i bozuk bir şekilde birleştirdi: `origin/main` = `1d75363` ("new") — `lib/effects/engine.tsx`'te **çözülmemiş merge conflict işaretleri** var, çoklu efekt/vektör çiçek/preview işleri de bu HEAD'te YOK.
+- Önceki tüm işler temiz şekilde **`404b74a`** commit'inde (`.opencode/memory.md` dahil). `76f3902` ayrı bir dal (video konum/boyut); `404b74a` onun süperseti.
+- Şu anki çalışma branch'i: **`feature/animation-speed-repeat`** (= `404b74a` + hız/tekrar özelliği). Ana dala birleştirme/deploy öncesi dikkat: main'i `404b74a`'ya al ya da bu branch'i main yap.
+
+## Hız + Tekrar Modu (son görev, deployed)
+- **`Greeting.animationSpeed?: number`** (0.4–3, varsayılan 1) — tüm animasyonların hız çarpanı. `EffectPlacement`'e **`repeat?: "once"|"loop"|"every"`** + **`repeatEvery?: number`** (3–120 sn, "every" için). repeat yoksa preset'in `timing.loop` değeri (EffectStage) veya "once" (VectorFormEffect) kullanılır → eski kayıtlar aynı çalışır.
+- Veri: `animation_speed` kolonu (schema.sql'de `alter ... add column if not exists animation_speed real;` — **kullanıcı Supabase'te çalıştırmadı HENÜZ**). repeat/repeatEvery `effects jsonb` içinde (şema değişikliği gerekmez).
+- **Güvenlik**: store.ts `animation_speed`'i yalnızca sayı geldiğinde insert'e ekler (kolon yokken site bozulmasın). Kolon çalıştırılana kadar hız değeri kaydedilemez ama site çalışır.
+- **Uygulama**: `EffectStage` hız = `animationDuration/delay ÷ speed`; tekrar: "loop" → infinite, "every" → `runId` state + interval ile container `key` remount. `VectorFormEffect` hız = `tl.timeScale(speed)`; "loop" → `tl.repeat(-1)`, "every" → interval ile `tl.restart(true)`.
+- **layout-editor**: slider grid'e "Animasyon hızı" (×0.4–×3, `display` prop'u ile) + "Efekt boyutları" altında her efekt için tekrar select'i ("Varsayılan"/"Bir kez"/"Sürekli"/"Her N sn'de" + "every" iken sn input'u). create-form `LayoutState.animationSpeed`; `onChange` fonksiyonel update ile hızı korur.
+- API `/api/k`: `parseEffects` repeat/repeatEvery clamp'ler; `animationSpeed` validasyonu 0.4–3. Test: animationSpeed'siz POST → `{"id":"T3FpqR"}` + GET 200 ✓; animationSpeed'li POST kolon yokken hata veriyor (beklenen).
+
+## Renk Bug Fixi + Yazı Stili + Per-Efekt Hız (son görev, deployed — kolonlar bekliyor)
+- **Renk bug'ı kök nedeni**: `/api/k` gövdeden `paletteId`'yi çıkarmıyor ve `createMessage`'a geçirmiyordu → link her zaman şablonun İLK paletiyle render ediliyordu. Düzeltildi: destructure + `getTemplate(template).palettes.some` ile doğrulama + createMessage'a geçirme. create-form zaten `paletteId` gönderiyordu. Canlı test: geçersiz paletteId → 400 "Geçersiz renk paleti." ✓
+- **Yazı stili**: yeni `lib/fonts.ts` → `TEXT_FONTS` (system/zarif/el-yazisi/daktilo; sistem font yığınları, ağ gerektirmez) + `getTextFont(id)`. `Greeting`/`CreateGreetingInput.textFont?: string`; `text_font` kolonu schema.sql'e eklendi. UI: layout-editor "Yazı stili" buton grubu + önizleme `fontFamily`; greeting-animation `fontFamily`. API `TEXT_FONTS.some` ile doğrulama → geçersizde 400 "Geçersiz yazı stili." ✓
+- **Per-efekt hız**: `EffectPlacement.speed?: number` (0.4–3, global `animationSpeed`'ten öncelikli). store/API `parseEffects`'e speed clamp eklendi; layout-editor her efektin altına ayrı "Hız" slider'ı (görünen değer `ep.speed ?? animationSpeed`); greeting-animation + layout-editor önizlemesi `speed={ep.speed ?? animationSpeed}`.
+- **Durum**: Kullanıcı Supabase'te `animation_speed` + `text_font` kolonlarını çalıştırdı; **her şey uçtan uca test edildi ve çalışıyor** (palet, font, per-efekt hız).
+
 ## Objektif
 Tebrik mesajı projesi. Mimari pivot: çiçek efektleri artık **prosedürel DOM partikül yerine SVG vektör + reveal animasyonu**. 
 - **Bloom (çiçek) kategorisi** → `VectorFormEffect` (SVG + GSAP draw/grow-up).

@@ -25,6 +25,8 @@ interface LayoutState {
   photo: Pos;
   text: Pos;
   videoScale: number;
+  animationSpeed: number;
+  textFont: string;
   effects: EffectPlacement[];
 }
 
@@ -32,6 +34,8 @@ const DEFAULT_LAYOUT: LayoutState = {
   photo: { x: 50, y: 50, scale: 1 },
   text: { x: 50, y: 75, fontSize: 1 },
   videoScale: 1,
+  animationSpeed: 1,
+  textFont: "system",
   effects: [{ id: DEFAULT_EFFECT_BY_TEMPLATE[templates[0].id], scale: 1 }],
 };
 
@@ -75,10 +79,17 @@ export default function CreateForm() {
             x: e.x ?? 50,
             y: e.y ?? 50,
             scale: e.scale ?? 1,
+            ...(typeof e.speed === "number" ? { speed: e.speed } : {}),
+            ...(e.repeat ? { repeat: e.repeat } : {}),
+            ...(e.repeat === "every"
+              ? { repeatEvery: e.repeatEvery ?? 15 }
+              : {}),
           })),
           photoPos: layout.photo,
           textPos: layout.text,
           videoScale: layout.videoScale,
+          animationSpeed: layout.animationSpeed,
+          textFont: layout.textFont,
           audio: audio ?? undefined,
           photo: photo,
           video: video,
@@ -415,8 +426,22 @@ export default function CreateForm() {
             photoPos={layout.photo}
             textPos={layout.text}
             videoScale={layout.videoScale}
+            animationSpeed={layout.animationSpeed}
+            onSpeedChange={(v) =>
+              setLayout((prev) => ({ ...prev, animationSpeed: v }))
+            }
+            textFont={layout.textFont}
+            onFontChange={(f) =>
+              setLayout((prev) => ({ ...prev, textFont: f }))
+            }
             onChange={(p, t, v, e) =>
-              setLayout({ photo: p, text: t, videoScale: v, effects: e })
+              setLayout((prev) => ({
+                ...prev,
+                photo: p,
+                text: t,
+                videoScale: v,
+                effects: e,
+              }))
             }
           />
 

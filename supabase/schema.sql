@@ -17,6 +17,8 @@ create table if not exists public.greetings (
   text_pos jsonb,
   effect_scale real,
   video_scale real,
+  animation_speed real,
+  text_font text,
   created_at timestamptz not null default now()
 );
 
@@ -32,6 +34,8 @@ alter table public.greetings add column if not exists photo_pos jsonb;
 alter table public.greetings add column if not exists text_pos jsonb;
 alter table public.greetings add column if not exists effect_scale real;
 alter table public.greetings add column if not exists video_scale real;
+alter table public.greetings add column if not exists animation_speed real;
+alter table public.greetings add column if not exists text_font text;
 
 -- İsim artık zorunlu değil (eski tablolarda NOT NULL olabilir)
 alter table public.greetings alter column name drop not null;
