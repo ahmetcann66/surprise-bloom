@@ -1,10 +1,8 @@
 # surprise-bloom — Kalıcı Bellek
 
-## ⚠️ Git Durumu (kritik — 03.08.2026)
-- `origin/main` = `1d75363` ("new") GitHub Desktop merge'i **çözülmeden** commit edilmiş: `lib/effects/engine.tsx`'te iki ayrı yerde (satır ~94, ~217) `<<<<<<< HEAD / ======= / >>>>>>> 76f3902...` işaretleri var → bu haliyle build bile olmaz. Çoklu efekt/vektör çiçek/preview işleri de bu HEAD'te YOK.
-- **Düzeltme yapıldı (lokal)**: önceki tüm işler temiz `404b74a`'da; çalışan özellikler `feature/animation-speed-repeat` üzerinde commit'lendi (**`ced24b6`**). Local `main` da `git branch -f main ced24b6` ile bu commit'e taşındı.
-- **KALAN TEK ADIM (kullanıcı)**: GitHub Desktop (veya Windows git) ile **force push** → `origin/main`'i `ced24b6`'ya getir. Bu ortamda push auth yok (`could not read Username`). Komut: `git checkout main && git push --force origin main`.
-- Branch'ler şu an aynı commit'i gösteriyor: `main` = `feature/animation-speed-repeat` = `ced24b6`.
+## ✅ Git Durumu (çözüldü — 03.08.2026)
+- Bozuk `1d75363` (çözülmemiş merge conflict işaretli) GitHub'dan silindi. `origin/main` artık temiz **`0505a7a`** (tüm özellikler + renk/palet, yazı stili, per-efekt hız). Tek ana dal: **main**.
+- Not: GitHub Desktop `main`'e geçerken otomatik merge/pull yapıp çakışmaları commit edebiliyor (`c4f3ae5` olayı). main'e geçerken merge kabul etme; gerekirse `git reset --hard origin/main` ile düzelt.
 
 ## Hız + Tekrar Modu (son görev, deployed)
 - **`Greeting.animationSpeed?: number`** (0.4–3, varsayılan 1) — tüm animasyonların hız çarpanı. `EffectPlacement`'e **`repeat?: "once"|"loop"|"every"`** + **`repeatEvery?: number`** (3–120 sn, "every" için). repeat yoksa preset'in `timing.loop` değeri (EffectStage) veya "once" (VectorFormEffect) kullanılır → eski kayıtlar aynı çalışır.
