@@ -212,7 +212,7 @@ export async function createMessage(
     template: input.template,
     palette: palette.id,
     name: input.name?.trim().slice(0, 80) || null,
-    message: input.message?.trim().slice(0, 280) || null,
+    message: input.message?.trim().slice(0, 2000) || null,
     audio: input.audio ? JSON.stringify(input.audio) : null,
     photo: input.photo?.slice(0, 1_000_000) || null,
     video: input.video?.slice(0, 4_000_000) || null,
