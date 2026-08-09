@@ -89,10 +89,16 @@ export interface CreateGreetingInput {
   textFont?: string;
 }
 
-// Ses: hazır klip (clip) veya kullanıcı kaydı (recording).
+// Ses: hazır klip (clip), kullanıcı kaydı (recording) veya yüklenen dosya (file).
 // - clip: value = lib/clips.ts içindeki hazır klip id'si.
 // - recording: value = tarayıcıda kaydedilmiş base64 data URL'i (data:audio/...).
+// - file: value = Supabase Storage'taki public URL; startTime/endTime isteğe bağlı
+//   trim penceresidir (saniye; yoksa tüm dosya çalınır).
 export interface GreetingAudio {
-  type: "clip" | "recording";
+  type: "clip" | "recording" | "file";
   value: string;
+  /** file tipinde: çalınacak pencerenin başlangıcı (sn). */
+  startTime?: number;
+  /** file tipinde: çalınacak pencerenin bitişi (sn). */
+  endTime?: number;
 }

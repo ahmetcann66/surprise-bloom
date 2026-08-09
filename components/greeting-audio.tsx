@@ -64,6 +64,24 @@ export default function GreetingAudioButton({ audio }: GreetingAudioProps) {
         const duration = (clip?.duration ?? 0) || (track ? track.beats * (60 / track.bpm) : 0);
         window.setTimeout(() => setPlaying(false), duration * 1000);
       });
+    } else if (currentAudio.type === "file") {
+      const el = new Audio(currentAudio.value);
+      elRef.current = el;
+      if (currentAudio.startTime !== undefined) {
+        el.currentTime = currentAudio.startTime;
+      }
+      el.onended = () => setPlaying(false);
+      if (currentAudio.endTime !== undefined) {
+        const stopAt = currentAudio.endTime;
+        el.ontimeupdate = () => {
+          if (elRef.current && el.currentTime >= stopAt) {
+            el.pause();
+            setPlaying(false);
+          }
+        };
+      }
+      el.play();
+      setPlaying(true);
     } else {
       const el = new Audio(currentAudio.value);
       elRef.current = el;

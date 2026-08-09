@@ -23,6 +23,8 @@ function resolveAudioContext(): typeof AudioContext {
  * - Parça (lib/music.ts) → kesintisiz döngü (lookahead scheduler).
  * - Legacy klip (lib/clips.ts) → süresi kadar arayla tekrarlanır.
  * - Kayıt (recording) → loop'lu HTMLAudioElement.
+ * - Dosya (file) → loop'lu HTMLAudioElement; startTime/endTime penceresi
+ *   uygulanır (fiziksel kesme yok, metadata döngüsü).
  * - Sessiz / çalınamaz seçim → hiçbir şey çalmaz.
  */
 export function useInvitationMusic(audio: GreetingAudio | null | undefined) {
@@ -57,6 +59,29 @@ export function useInvitationMusic(audio: GreetingAudio | null | undefined) {
       el.loop = true;
       el.volume = 0.7;
       elRef.current = el;
+      el.play()
+        .then(() => setPlaying(true))
+        .catch(() => {
+          elRef.current = null;
+        });
+      return;
+    }
+
+    if (audio.type === "file") {
+      const el = new Audio(audio.value);
+      el.loop = true;
+      el.volume = 0.7;
+      elRef.current = el;
+      if (audio.startTime !== undefined) {
+        el.currentTime = audio.startTime;
+      }
+      if (audio.endTime !== undefined) {
+        el.ontimeupdate = () => {
+          if (elRef.current && el.currentTime >= audio.endTime!) {
+            el.currentTime = audio.startTime ?? 0;
+          }
+        };
+      }
       el.play()
         .then(() => setPlaying(true))
         .catch(() => {

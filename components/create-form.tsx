@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { getPalette, templates } from "@/lib/templates";
-import { clips } from "@/lib/clips";
-import { musicTracks, SILENT_CLIP } from "@/lib/music";
 import type { EffectPlacement, GreetingAudio, TemplateId } from "@/lib/types";
 import {
   EFFECT_CATEGORIES,
@@ -17,8 +15,7 @@ import {
   type EventType,
 } from "@/lib/invitation/types";
 import QrCode from "@/components/qr-code";
-import AudioRecorder from "@/components/audio-recorder";
-import GreetingAudioButton from "@/components/greeting-audio";
+import MusicField from "@/components/music-field";
 import PhotoUpload from "@/components/photo-upload";
 import VideoUpload from "@/components/video-upload";
 import LayoutEditor, { type Pos } from "@/components/layout-editor";
@@ -470,53 +467,11 @@ export default function CreateForm() {
               </div>
 
               <div>
-                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                  Ses ekle{" "}
-                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
-                </span>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAudio(null)}
-                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                      audio === null
-                        ? "border-zinc-500 ring-2 ring-zinc-500/30 dark:border-zinc-300"
-                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                    }`}
-                  >
-                    🔇 Ses yok
-                  </button>
-                  {clips.map((c) => {
-                    const active = audio?.type === "clip" && audio.value === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setAudio({ type: "clip", value: c.id })}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                          active
-                            ? "border-pink-500 ring-2 ring-pink-500/30"
-                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                        }`}
-                      >
-                        {c.emoji} {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <AudioRecorder
-                  onResult={(dataUrl) =>
-                    setAudio(dataUrl ? { type: "recording", value: dataUrl } : null)
-                  }
+                <MusicField
+                  value={audio}
+                  onChange={setAudio}
+                  variant="greeting"
                 />
-                {audio && (
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Seçilen ses:
-                    </span>
-                    <GreetingAudioButton audio={audio} />
-                  </div>
-                )}
               </div>
 
               <div>
@@ -786,62 +741,12 @@ export default function CreateForm() {
               </div>
 
               <div>
-                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                  Müzik{" "}
-                  <span className="font-normal text-zinc-400">
-                    (opsiyonel — seçmezsen davetiyede sihirli melodi çalar)
-                  </span>
-                </span>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAudio({ type: "clip", value: SILENT_CLIP })}
-                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                      audio === null ||
-                      (audio?.type === "clip" && audio.value === SILENT_CLIP)
-                        ? "border-zinc-500 ring-2 ring-zinc-500/30 dark:border-zinc-300"
-                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                    }`}
-                  >
-                    🔇 Müzik yok
-                  </button>
-                  {musicTracks.map((t) => {
-                    const active = audio?.type === "clip" && audio.value === t.id;
-                    return (
-                      <button
-                        key={t.id}
-                        type="button"
-                        onClick={() => setAudio({ type: "clip", value: t.id })}
-                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                          active
-                            ? "border-pink-500 ring-2 ring-pink-500/30"
-                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                        }`}
-                      >
-                        {t.emoji} {t.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <AudioRecorder
-                  onResult={(dataUrl) =>
-                    setAudio(
-                      dataUrl
-                        ? { type: "recording", value: dataUrl }
-                        : { type: "clip", value: SILENT_CLIP },
-                    )
-                  }
+                <MusicField
+                  value={audio}
+                  onChange={setAudio}
+                  variant="invitation"
+                  description="Seçmezsen davetiyede sihirli melodi çalar."
                 />
-                {audio &&
-                  audio.type === "clip" &&
-                  audio.value !== SILENT_CLIP && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                        Seçilen ses:
-                      </span>
-                      <GreetingAudioButton audio={audio} />
-                    </div>
-                  )}
               </div>
             </>
           )}

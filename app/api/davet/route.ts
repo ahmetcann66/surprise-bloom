@@ -2,26 +2,12 @@ import { NextResponse } from "next/server";
 import { createInvitation } from "@/lib/invitation/store";
 import { getTheme } from "@/lib/invitation/themes";
 import { isEventType } from "@/lib/invitation/types";
-import { getClip } from "@/lib/clips";
-import { getMusicTrack, SILENT_CLIP } from "@/lib/music";
+import { parseGreetingAudio } from "@/lib/music";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import type { GreetingAudio } from "@/lib/types";
 
 function parseAudio(raw: unknown): GreetingAudio | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
-  const { type, value } = raw as { type?: unknown; value?: unknown };
-  if (type === "clip") {
-    return typeof value === "string" &&
-      (getClip(value) || getMusicTrack(value) || value === SILENT_CLIP)
-      ? { type: "clip", value }
-      : undefined;
-  }
-  if (type === "recording") {
-    return typeof value === "string" && value.startsWith("data:audio")
-      ? { type: "recording", value }
-      : undefined;
-  }
-  return undefined;
+  return parseGreetingAudio(raw);
 }
 
 export async function POST(request: Request) {

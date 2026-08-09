@@ -7,6 +7,7 @@ import type {
 import { getTheme } from "@/lib/invitation/themes";
 import { isEventType } from "@/lib/invitation/types";
 import type { GreetingAudio } from "@/lib/types";
+import { parseGreetingAudio } from "@/lib/music";
 import { supabase } from "@/lib/supabase";
 
 // Davetiye veri katmanı — tebrik store'uyla aynı çift modlu desen
@@ -53,14 +54,7 @@ function parseAudio(value: unknown): GreetingAudio | undefined {
       return undefined;
     }
   }
-  if (parsed && typeof parsed === "object" && "type" in parsed && "value" in parsed) {
-    const t = (parsed as { type: unknown }).type;
-    const v = (parsed as { value: unknown }).value;
-    if ((t === "clip" || t === "recording") && typeof v === "string") {
-      return { type: t, value: v };
-    }
-  }
-  return undefined;
+  return parseGreetingAudio(parsed);
 }
 
 function rowToInvitation(row: InvitationRow): Invitation | undefined {

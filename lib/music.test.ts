@@ -7,6 +7,10 @@ import {
   createMusicLooper,
   musicLabel,
   isSilentAudio,
+  isValidTrim,
+  isStorageAudioUrl,
+  parseGreetingAudio,
+  AUDIO_BUCKET,
   SILENT_CLIP,
 } from "@/lib/music";
 import type { GreetingAudio } from "@/lib/types";
@@ -47,6 +51,16 @@ describe("music tracks", () => {
       }
     }
   });
+
+  it("yeni sentez parçalar katalogda mevcut ve çalınabilir sürelidir", () => {
+    expect(getMusicTrack("dogum-gunu")?.label).toBe("Doğum Günü");
+    expect(getMusicTrack("huzur")?.label).toBe("Huzur");
+    for (const id of ["dogum-gunu", "huzur"]) {
+      const track = getMusicTrack(id)!;
+      expect(trackDuration(track)).toBeGreaterThan(3);
+      expect(track.notes.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("musicLabel / isSilentAudio", () => {
@@ -66,6 +80,110 @@ describe("musicLabel / isSilentAudio", () => {
     expect(isSilentAudio({ type: "clip", value: SILENT_CLIP })).toBe(true);
     expect(isSilentAudio({ type: "clip", value: "vals" })).toBe(false);
     expect(isSilentAudio(null)).toBe(true);
+  });
+
+  it("file tipi etiketi ve sessizlik kontrolünü yönetir", () => {
+    expect(musicLabel({ type: "file", value: "https://x" })).toBe("Özel müzik");
+    expect(isSilentAudio({ type: "file", value: "https://x" })).toBe(false);
+  });
+});
+
+describe("isStorageAudioUrl / isValidTrim", () => {
+  const base = "https://abcd.supabase.co";
+
+  it("yalnızca proje bucket URL'lerini kabul eder", () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = base;
+    try {
+      expect(isStorageAudioUrl(`${base}/storage/v1/object/public/${AUDIO_BUCKET}/uploads/abc.mp3`)).toBe(true);
+      expect(isStorageAudioUrl(`${base}/storage/v1/object/public/other/uploads/abc.mp3`)).toBe(false);
+      expect(isStorageAudioUrl(`https://evil.com/storage/v1/object/public/${AUDIO_BUCKET}/abc.mp3`)).toBe(false);
+      expect(isStorageAudioUrl(`${base}/storage/v1/object/public/${AUDIO_BUCKET}/../etc/passwd`)).toBe(false);
+      expect(isStorageAudioUrl(`${base}/storage/v1/object/public/${AUDIO_BUCKET}/abc.mp3?x=1`)).toBe(false);
+      expect(isStorageAudioUrl(`${base}/storage/v1/object/public/${AUDIO_BUCKET}/`)).toBe(false);
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    }
+  });
+
+  it("config yoksa storage URL geçersiz sayılır", () => {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    expect(isStorageAudioUrl(`${base}/storage/v1/object/public/${AUDIO_BUCKET}/a.mp3`)).toBe(false);
+  });
+
+  it("trim penceresi tutarlılığını doğrular", () => {
+    expect(isValidTrim({ type: "file", value: "https://x" })).toBe(true);
+    expect(isValidTrim({ type: "file", value: "https://x", startTime: 10, endTime: 20 })).toBe(true);
+    expect(isValidTrim({ type: "file", value: "https://x", startTime: 10 })).toBe(false);
+    expect(isValidTrim({ type: "file", value: "https://x", endTime: 20 })).toBe(false);
+    expect(isValidTrim({ type: "file", value: "https://x", startTime: 20, endTime: 10 })).toBe(false);
+    expect(isValidTrim({ type: "file", value: "https://x", startTime: -1, endTime: 5 })).toBe(false);
+    expect(isValidTrim({ type: "clip", value: "vals" })).toBe(true);
+  });
+});
+
+describe("parseGreetingAudio", () => {
+  const base = "https://abcd.supabase.co";
+
+  it("geçerli clip/recording/file değerlerini üretir", () => {
+    expect(parseGreetingAudio({ type: "clip", value: "vals" })).toEqual({
+      type: "clip",
+      value: "vals",
+    });
+    expect(parseGreetingAudio({ type: "clip", value: SILENT_CLIP })).toEqual({
+      type: "clip",
+      value: SILENT_CLIP,
+    });
+    expect(parseGreetingAudio({ type: "recording", value: "data:audio/webm;base64,abc" })).toEqual({
+      type: "recording",
+      value: "data:audio/webm;base64,abc",
+    });
+    process.env.NEXT_PUBLIC_SUPABASE_URL = base;
+    try {
+      expect(
+        parseGreetingAudio({
+          type: "file",
+          value: `${base}/storage/v1/object/public/${AUDIO_BUCKET}/uploads/abc.mp3`,
+          startTime: 15.123,
+          endTime: 45.678,
+        }),
+      ).toEqual({
+        type: "file",
+        value: `${base}/storage/v1/object/public/${AUDIO_BUCKET}/uploads/abc.mp3`,
+        startTime: 15.1,
+        endTime: 45.7,
+      });
+      expect(
+        parseGreetingAudio({
+          type: "file",
+          value: `${base}/storage/v1/object/public/${AUDIO_BUCKET}/uploads/abc.mp3`,
+        }),
+      ).toEqual({
+        type: "file",
+        value: `${base}/storage/v1/object/public/${AUDIO_BUCKET}/uploads/abc.mp3`,
+      });
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    }
+  });
+
+  it("geçersiz girdileri reddeder", () => {
+    expect(parseGreetingAudio(null)).toBeUndefined();
+    expect(parseGreetingAudio(undefined)).toBeUndefined();
+    expect(parseGreetingAudio("string")).toBeUndefined();
+    expect(parseGreetingAudio({ type: "clip", value: 42 })).toBeUndefined();
+    expect(parseGreetingAudio({ type: "clip", value: "bilinmeyen" })).toBeUndefined();
+    expect(parseGreetingAudio({ type: "recording", value: "https://x" })).toBeUndefined();
+    expect(parseGreetingAudio({ type: "file", value: "https://evil.com/x" })).toBeUndefined();
+    process.env.NEXT_PUBLIC_SUPABASE_URL = base;
+    try {
+      const url = `${base}/storage/v1/object/public/${AUDIO_BUCKET}/uploads/abc.mp3`;
+      expect(parseGreetingAudio({ type: "file", value: url, startTime: "10" })).toBeUndefined();
+      expect(parseGreetingAudio({ type: "file", value: url, startTime: 10 })).toBeUndefined();
+      expect(parseGreetingAudio({ type: "file", value: url, startTime: 30, endTime: 10 })).toBeUndefined();
+      expect(parseGreetingAudio({ type: "file", value: url, startTime: 10, endTime: 1000 })).toBeUndefined();
+    } finally {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    }
   });
 });
 

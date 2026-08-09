@@ -1,5 +1,16 @@
 # surprise-bloom — Kalıcı Bellek
 
+## 🎵 Gelişmiş Müzik Sistemi (09.08.2026 — deployed, bucket doğrulandı)
+- **Tip**: `GreetingAudio` → `"clip" | "recording" | "file"`; file için opsiyonel `startTime/endTime` (trim penceresi, sn). Yeni dosya ÜRETİLMEZ — metadata döngüsü.
+- **`lib/music.ts`**: +2 sentez parça (dogum-gunu 🎂, huzur 🌙 → toplam 6). `musicLabel` file→"Özel müzik". Yeni: `AUDIO_BUCKET="audio-files"`, `isStorageAudioUrl` (yalnızca proje bucket prefix + `..`/`?`/`#` reddi), `isValidTrim`, `MAX_AUDIO_DURATION=600`, **`parseGreetingAudio(raw)`** (clip/recording/file için ortak sunucu tarafı doğrulama — API route + store'lar kullanır).
+- **`lib/music-catalog.ts`**: `musicCategories` (dugun/dogum-gunu/sakin) + `musicCatalog` (6 parça, artist/süre) + `searchMusicCatalog` (Türkçe-duyarsız, kategori/parça/sanatçı).
+- **`lib/audio-upload.ts`**: `validateAudioFile` (5 MB, mp3/ogg/wav/m4a), `hashAudioFile` (SHA-256), `uploadAudioFile` (browser→Storage, `uploads/<hash>.<ext>`, list ile dedupe + 409/çakışma → duplicate URL), `publicAudioUrl`. Binary Vercel'den geçmez.
+- **UI (ilk modal)**: `music-selector.tsx` (arama + kategori + önizleme [tek seferde tek] + dosya yükleme + telif uyarısı + trim), `audio-trim-editor.tsx` (canvas waveform, `decodeAudioData` peak, pointer sürükleme), `music-field.tsx` (ortak form alanı; greeting silent=null, davetiye silent=`SILENT_CLIP`). create-form'daki iki kopyalanmış ses bloğu MusicField ile değiştirildi.
+- **Oynatma**: `use-invitation-music` ve `greeting-audio` file tipini trim penceresiyle çalar; davetiyede file loop'lu (timeupdate ile pencere sıfırlama).
+- **`supabase/audio-storage.sql`**: public bucket + RLS (anon insert `uploads/`|`library/`, select; silme kapalı). **✅ Kullanıcı dashboard'dan kurdu + canlı doğrulandı**: supabase-js (publishable key `sb_publishable_...`, JWT değil) ile upload OK, list OK, public URL OK; silme RLS'le engelli (remove `OK []` döner ama dosya kalır). Client bundle'dan çıkarılan gerçek config: URL `https://ejimkbncttyxpkwltnuk.supabase.co`. Dashboard sihirbazı JPG örnek policy adı çakışması üretti → `anon_audio_upload`/`anon_audio_select` adlarıyla kuruldu.
+- **Doğrulama**: lint 0 · 81 test (11 dosya) · build temiz. **Deploy başarılı** (auth: `npx vercel whoami` → ahmetcann66, `~/.vercel` yerine `.config`'te auth). Canlı smoke: root 200 + "Müzik seç" UI, `/api/davet` track→RU7AFU (page 200), `/api/k` track→q3xbTN, evil file URL→"Geçersiz ses seçimi" ✓. **Upload smoke: `uploads/_smoke-test.mp3` yüklendi+okundu, silme engelli**. Test kayıtları RU7AFU/q3xbTN veride kaldı (anon silme kapalı). ⚠️ `_smoke-test.mp3` bucket'ta duruyor — kullanıcı dashboard'dan elle silecek.
+- **Not**: `.env.local`/`.env.supabase` gizlenmiş snapshot (`[SENSITIVE]`); gerçek supabase URL yalnızca Vercel env'inde.
+
 ## ✅ Git Durumu (çözüldü — 03.08.2026)
 - Bozuk `1d75363` (çözülmemiş merge conflict işaretli) GitHub'dan silindi. `origin/main` artık temiz **`0505a7a`** (tüm özellikler + renk/palet, yazı stili, per-efekt hız). Tek ana dal: **main**.
 - Not: GitHub Desktop `main`'e geçerken otomatik merge/pull yapıp çakışmaları commit edebiliyor (`c4f3ae5` olayı). main'e geçerken merge kabul etme; gerekirse `git reset --hard origin/main` ile düzelt.
@@ -25,6 +36,12 @@
 - **`store.ts` ID collision retry**: Supabase insert'te unique violation (23505) → yeni nanoid ile 3 deneme; fallback store'da da çakışma kontrolü.
 - **Vitest 4 kuruldu** (`npm run test`): `lib/**/*.test.ts` — flowers (determinizm/id/element limiti), templates, presets, clips, rate-limit, store fallback roundtrip. Toplam 40 test yeşil.
 - Doğrulama: `npm run build` temiz (6 route), `npx eslint .` 0 hata.
+
+## 🚀 Canlıya Alındı (09.08.2026)
+- Deploy: `VERCEL_TOKEN=<token> npx vercel --prod --yes` (CLI oturumu yoktu; token tek kullanımlık env olarak geçildi, hiçbir dosyaya kaydedilmedi).
+- **Canlı:** https://tebrik-mesaj.vercel.app (root 200, production alias). Build'de 7 route.
+- Kullanıcı Supabase'te `invitations` tablosunu çalıştırdı → canlı doğrulama: `/api/davet` vals müzik + fotoğraf → `{"id":"i4RR2F"}`; `/davet/i4RR2F` 200 (zarf flap/seal + vals flight data); tema-etkinlik uyuşmazlığı → 400 doğru.
+- Not: Vercel CLI yeniden auth isterse aynı token yöntemi kullanılabilir; `~/.vercel` auth kalıcı olarak kurulmadı.
 
 ## Müzik Sistemi (tamamlandı — deploy'a hazır)
 - **`lib/music.ts`**: davetiye için döngülü Web Audio sentezi. `MusicTrack { id, label, emoji, bpm, beats, notes[], pad? }`; `playOnce(ctx, track, startTime?)` (önizleme), `createMusicLooper(ctx, track)` (lookahead: 0.1 sn'de bir, 0.5 sn pencereye giren döngü başlangıcını planlar → kesintisiz döngü), `trackDuration`, `getMusicTrack`, `musicLabel(audio)` (null = çalınamaz/sessiz), `isSilentAudio`, `SILENT_CLIP = "sessiz"` (bilinçli "müzik yok" sentinel'i).

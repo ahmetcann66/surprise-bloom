@@ -171,6 +171,37 @@ export function trackDuration(track: MusicTrack): number {
 
 export const musicTracks: MusicTrack[] = [
   {
+    id: "dogum-gunu",
+    label: "Doğum Günü",
+    emoji: "🎂",
+    bpm: 96,
+    beats: 8,
+    pad: { f: 196.0, v: 0.06 },
+    notes: [
+      { f: 523.25, t: 0, d: 0.5, v: 0.16 },
+      { f: 523.25, t: 1, d: 0.5, v: 0.16 },
+      { f: 659.25, t: 2, d: 0.5, v: 0.16 },
+      { f: 523.25, t: 3, d: 0.5, v: 0.16 },
+      { f: 783.99, t: 4, d: 0.9, v: 0.16 },
+      { f: 659.25, t: 6, d: 0.5, v: 0.16 },
+      { f: 587.33, t: 7, d: 1.2, v: 0.16 },
+    ],
+  },
+  {
+    id: "huzur",
+    label: "Huzur",
+    emoji: "🌙",
+    bpm: 70,
+    beats: 8,
+    pad: { f: 130.81, v: 0.08 },
+    notes: [
+      ...chordNotes(0, [220.0, 261.63, 329.63], 1.6, "sine", 0.1),
+      { f: 440.0, t: 1, d: 2.0, v: 0.1, o: "sine" },
+      ...chordNotes(4, [174.61, 220.0, 261.63], 1.6, "sine", 0.1),
+      { f: 349.23, t: 5, d: 2.0, v: 0.1, o: "sine" },
+    ],
+  },
+  {
     id: "muzik-kutusu",
     label: "Müzik Kutusu",
     emoji: "🎼",
@@ -272,6 +303,7 @@ export function musicLabel(
 ): string | null {
   if (!audio) return null;
   if (audio.type === "recording") return "Ses kaydı";
+  if (audio.type === "file") return "Özel müzik";
   if (audio.value === SILENT_CLIP) return null;
   return (
     getMusicTrack(audio.value)?.label ??
@@ -288,4 +320,96 @@ export function isSilentAudio(
     audio === undefined ||
     (audio.type === "clip" && audio.value === SILENT_CLIP)
   );
+}
+
+/** Supabase Storage'taki ses dosyası bucket adı. */
+export const AUDIO_BUCKET = "audio-files";
+
+/**
+ * Yüklenen dosya (file) sesinin public URL'sini doğrular.
+ * Yalnızca bu projenin Supabase Storage bucket'ından gelen URL'ler kabul edilir.
+ */
+export function isStorageAudioUrl(url: string): boolean {
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!base) return false;
+  const prefix = `${base}/storage/v1/object/public/${AUDIO_BUCKET}/`;
+  if (!url.startsWith(prefix)) return false;
+  // path traversal / sorgu parametresi ile manipülasyon engelle
+  const rest = url.slice(prefix.length);
+  return rest.length > 0 && !rest.includes("..") && !rest.includes("?") && !rest.includes("#");
+}
+
+/** Trim penceresi tutarlı mı? (startTime < endTime, her ikisi de varsa). */
+export function isValidTrim(audio: GreetingAudio): boolean {
+  if (audio.type !== "file") return true;
+  const { startTime, endTime } = audio;
+  if (startTime === undefined && endTime === undefined) return true;
+  if (startTime === undefined || endTime === undefined) return false;
+  if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) return false;
+  if (startTime < 0 || endTime <= startTime) return false;
+  return true;
+}
+
+/** Trim uygulanabilecek azami süre (sn). */
+export const MAX_AUDIO_DURATION = 600;
+
+/**
+ * Ham değerden güvenli GreetingAudio üretir (API + veri katmanı ortak).
+ * - clip: bilinen parça/klip id'si veya SILENT_CLIP.
+ * - recording: data:audio... base64 URL.
+ * - file: yalnızca bu projenin Supabase Storage bucket'ından gelen public URL;
+ *   startTime/endTime ikisi birden varsa sayısal, 0 ≤ start < end ≤ azami süre.
+ * Geçersiz girdi undefined döner (kayıt düşer).
+ */
+export function parseGreetingAudio(raw: unknown): GreetingAudio | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const { type, value, startTime, endTime } = raw as {
+    type?: unknown;
+    value?: unknown;
+    startTime?: unknown;
+    endTime?: unknown;
+  };
+
+  if (type === "clip") {
+    if (typeof value !== "string") return undefined;
+    const known =
+      getMusicTrack(value) !== undefined ||
+      getClip(value) !== undefined ||
+      value === SILENT_CLIP;
+    return known ? { type: "clip", value } : undefined;
+  }
+
+  if (type === "recording") {
+    return typeof value === "string" && value.startsWith("data:audio")
+      ? { type: "recording", value }
+      : undefined;
+  }
+
+  if (type === "file") {
+    if (typeof value !== "string" || !isStorageAudioUrl(value)) return undefined;
+    if (startTime === undefined && endTime === undefined) {
+      return { type: "file", value };
+    }
+    if (typeof startTime !== "number" || typeof endTime !== "number") {
+      return undefined;
+    }
+    if (!Number.isFinite(startTime) || !Number.isFinite(endTime)) {
+      return undefined;
+    }
+    if (
+      startTime < 0 ||
+      endTime <= startTime ||
+      endTime > MAX_AUDIO_DURATION
+    ) {
+      return undefined;
+    }
+    return {
+      type: "file",
+      value,
+      startTime: Math.round(startTime * 10) / 10,
+      endTime: Math.round(endTime * 10) / 10,
+    };
+  }
+
+  return undefined;
 }

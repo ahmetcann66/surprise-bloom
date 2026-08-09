@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { createMessage } from "@/lib/store";
-import { getClip } from "@/lib/clips";
 import { hasEffect } from "@/lib/effects/presets";
 import { getTemplate } from "@/lib/templates";
 import { TEXT_FONTS } from "@/lib/fonts";
+import { parseGreetingAudio } from "@/lib/music";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import type { EffectPlacement, GreetingAudio, Position } from "@/lib/types";
 
@@ -77,19 +77,7 @@ function parseEffects(raw: unknown): EffectPlacement[] | undefined {
 }
 
 function parseAudio(raw: unknown): GreetingAudio | undefined {
-  if (!raw || typeof raw !== "object") return undefined;
-  const { type, value } = raw as { type?: unknown; value?: unknown };
-  if (type === "clip") {
-    return typeof value === "string" && getClip(value)
-      ? { type: "clip", value }
-      : undefined;
-  }
-  if (type === "recording") {
-    return typeof value === "string" && value.startsWith("data:audio")
-      ? { type: "recording", value }
-      : undefined;
-  }
-  return undefined;
+  return parseGreetingAudio(raw);
 }
 
 export async function POST(request: Request) {

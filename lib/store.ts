@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import { getPalette, getTemplate } from "@/lib/templates";
 import { hasEffect } from "@/lib/effects/presets";
+import { parseGreetingAudio } from "@/lib/music";
 import { supabase } from "@/lib/supabase";
 
 // Veri katmanı.
@@ -146,19 +147,7 @@ function parseAudio(value: unknown): GreetingAudio | undefined {
       return undefined;
     }
   }
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    "type" in parsed &&
-    "value" in parsed
-  ) {
-    const t = (parsed as { type: unknown }).type;
-    const v = (parsed as { value: unknown }).value;
-    if ((t === "clip" || t === "recording") && typeof v === "string") {
-      return { type: t, value: v };
-    }
-  }
-  return undefined;
+  return parseGreetingAudio(parsed);
 }
 
 function rowToGreeting(row: GreetingRow): Greeting {
