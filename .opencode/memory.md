@@ -18,6 +18,41 @@
 - **Per-efekt hız**: `EffectPlacement.speed?: number` (0.4–3, global `animationSpeed`'ten öncelikli). store/API `parseEffects`'e speed clamp eklendi; layout-editor her efektin altına ayrı "Hız" slider'ı (görünen değer `ep.speed ?? animationSpeed`); greeting-animation + layout-editor önizlemesi `speed={ep.speed ?? animationSpeed}`.
 - **Durum**: Kullanıcı Supabase'te `animation_speed` + `text_font` kolonlarını çalıştırdı; **her şey uçtan uca test edildi ve çalışıyor** (palet, font, per-efekt hız).
 
+## Kalite Temizliği (Faz A — tamamlandı, deployed'a hazır)
+- `globals.css` bloom keyframe duplikasyonu (×2) tek kopyaya indirildi.
+- **Atıl 3D kod silindi**: `components/three-scene.tsx`, `components/rose-scene.tsx`, `components/scene-error-boundary.tsx`, `hooks/use-fps-monitor.ts`, `lib/performance.ts`, `lib/rose.ts`. Paketler kaldırıldı: `three`, `@react-three/fiber`, `@react-three/drei`, `@react-three/postprocessing`, `@types/three`.
+- **`lib/rate-limit.ts`**: `/api/k` POST için süreç-içi IP tabanlı sliding-window (60sn'de 15 istek, aşımda 429). `clientIp` x-forwarded-for/x-real-ip'ten okur. Not: Vercel serverless'ta instance bazlıdır, mutlak engel değildir.
+- **`store.ts` ID collision retry**: Supabase insert'te unique violation (23505) → yeni nanoid ile 3 deneme; fallback store'da da çakışma kontrolü.
+- **Vitest 4 kuruldu** (`npm run test`): `lib/**/*.test.ts` — flowers (determinizm/id/element limiti), templates, presets, clips, rate-limit, store fallback roundtrip. Toplam 40 test yeşil.
+- Doğrulama: `npm run build` temiz (6 route), `npx eslint .` 0 hata.
+
+## Müzik Sistemi (tamamlandı — deploy'a hazır)
+- **`lib/music.ts`**: davetiye için döngülü Web Audio sentezi. `MusicTrack { id, label, emoji, bpm, beats, notes[], pad? }`; `playOnce(ctx, track, startTime?)` (önizleme), `createMusicLooper(ctx, track)` (lookahead: 0.1 sn'de bir, 0.5 sn pencereye giren döngü başlangıcını planlar → kesintisiz döngü), `trackDuration`, `getMusicTrack`, `musicLabel(audio)` (null = çalınamaz/sessiz), `isSilentAudio`, `SILENT_CLIP = "sessiz"` (bilinçli "müzik yok" sentinel'i).
+- **4 parça**: muzik-kutusu 🎼 (C-Am-F-G arpej, 88bpm), vals 💃 (120bpm 3/4, bas+akor+melodi), sihir ✨ (pad+parıltı, 60bpm, varsayılan), zil 🔔 (düğün çanları, 66bpm). Nota sayıları küçük, hepsi testte.
+- **`hooks/use-invitation-music.ts`**: `{ playing, start, stop, toggle }`. Parça→looper, legacy clip→duration aralığıyla tekrar, recording→loop'lu `<audio>`; sessiz/geçersiz→çalmaz. `start()` kullanıcı jestinde (zarf açılışı / buton) çağrılır → autoplay politikası aşılır. `stop()` ctx kapatır.
+- **`components/invitation/music-player.tsx`**: sağ altta yüzen buton (♪/⏸ + etiket), `aria-pressed`.
+- **`invitation-page.tsx`**: `GreetingAudioButton` yerine `MusicPlayer` + hook; `handleOpen` hem `setOpened(true)` hem `start()`. `DEFAULT_AUDIO = sihir`. Buton yalnızca `musicLabel` null değilse (sessiz/boş → yok).
+- **`greeting-audio.tsx`**: etiket `musicLabel` üzerinden; playback'te parça varsa `playOnce` (tek sefer önizleme).
+- **`/api/davet` parseAudio**: `getClip(value) || getMusicTrack(value) || value === "sessiz"` → artık müzik id'leri + sentinel kabul, diğerleri 400.
+- **`create-form.tsx`** davetiye bölümü: müzik seçenekleri `musicTracks`; "🔇 Müzik yok" → `SILENT_CLIP` (gerçekten sessiz; önceki `null` varsayılan sihir'e dönüyordu — bug düzeltildi). Kayıt silinince de sentinel. Önizleme butonu sentinel'de gizlenir. (Greeting bölümü clips + null kullanmaya devam ediyor.)
+- **Testler**: `lib/music.test.ts` 9 test (id benzersizliği, yapı, t<beats, dalga tipi, label/sessiz, sahte ctx'te playOnce/looper) → toplam **62 test / 9 dosya yeşil**.
+- Smoke: `vals` ve `sessiz` POST kabul → id döner; `yok` → `{"error":"Geçersiz ses seçimi."}`; `/davet/<id>` 200, audio flight data'da doğru. Lint 0, build temiz (7 route).
+- **Bilinçli ertelendi**: RSVP/harita/sayaç/OG davetiyesi MVP dışı; müzik kontrolü zarf fazında da var ama müzik zarf açılınca/butonla başlar (otomatik başlatma yok).
+
+## Düğün Davetiyesi (Faz B — MVP, deploy'a hazır)
+- **Ürün**: Davetiye 💌 + 4 tebrik şablonu. Davetiye kendi veri katmanında: `TemplateId` union'ına dokunulmadı.
+- **Veri**: `lib/invitation/types.ts` (EVENT_TYPES: dugun/nikah/sunnet/kutlama, formatDate TR), `themes.ts` (4 tema, `getThemeForEvent`), `figures.ts` (bride/groom/child SVG leaf üretici, `flowers.ts` `shade`/`VFLeaf`/`GradientDef` sözleşmesini kullanır), `store.ts` (dual-mode Supabase/fallback, tema doğrular).
+- **Bileşenler**: `components/invitation/` `figures-svg.tsx`, `envelope.tsx` (GSAP: mühür erir → kapak rotateX -180 → mektup yükselir yPercent -45 → zarf söner; reducedMotion), `couple-reveal.tsx` (heartburst + rose/peony + bilgi blokları), `invitation-page.tsx` (Envelope → CoupleReveal orkestratörü, default müzik "sihir").
+- **Rotlar**: `app/api/davet/route.ts` (validasyon + rate limit), `app/davet/[id]/page.tsx` + `not-found.tsx`. `app/api/k` desenini kopyalar.
+- **Form**: `components/create-form.tsx` ürün seçimi + davetiye alanları (etkinlik tipi/partner/tarih/saat/mekan/şehir/adres/not/fotoğraf/müzik); QR tema davetiyede invTheme'den.
+- **DB**: `supabase/schema.sql` → `invitations` tablosu (theme, event_type, partner_a/b, event_date, time, venue, city, address, message, audio jsonb, photo) + RLS anon insert/select + created_at index.
+- **Testler**: +13 → toplam **53 test / 8 dosya yeşil**. `npm run build` temiz (7 route: `/` + davetiye rotaları dahil).
+- **Notlar**: API alan adı **`themeId`** (theme değil), tarih **`YYYY-MM-DD`** regex (GG/AA/YYYY değil). `/api/davet` smoke: `{"id":"AR5hGw","url":"/davet/AR5hGw"}` ve sayfada zarf flap/seal + isimler render ✓.
+- **Bugün yapılan ince ayar + lint temizliği**: envelope mektup `yPercent -45` + rotasyon waggle (0.8/-0.8/0), kart dikey ortalandı (top-[12%] bottom-[10%], flex center); couple-reveal sahne+bilgi flex yığın düzenine çevrildi (çakışma yok). Lint 0 hata — önceden var olan 5 hatayı da temizledik (layout-editor apostrof×3, vector-form-effect setState×3 queueMicrotask/rAF, preview/flowers atıl import+var).
+- **Fotoğraf görüntüleme tamamlandı**: `couple-reveal.tsx` `photo?: string` prop'u aldı; monogramın altında tema aksanıyla çerçeveli polaroid kart (border accent + `rounded-2xl` + gölge; `object-cover h-40 w-32 sm:h-48 sm:w-36`), `details` bloğuyla birlikte fade-in. `invitation-page` `invitation.photo`'yu iletiyor. Smoke: fotoğraflı POST → `{"id":"mTsFeE"}`; SSR'da (flight data) photo data URL doğrulandı, img yalnızca zarf açılınca client'ta render edilir (tasarım gereği). <img> + eslint-disable konvansiyonu (mevcut kodla aynı).
+- **Bilinçli ertelendi**: RSVP/harita/sayaç/OG davetiyesi MVP dışı.
+- **Sırada**: Müzik sistemi (`lib/clips.ts` Web Audio temeli üzerine davetiye ekranı için geliştirilecek; "sihir" varsayılan zaten bağlı).
+
 ## Objektif
 Tebrik mesajı projesi. Mimari pivot: çiçek efektleri artık **prosedürel DOM partikül yerine SVG vektör + reveal animasyonu**. 
 - **Bloom (çiçek) kategorisi** → `VectorFormEffect` (SVG + GSAP draw/grow-up).
@@ -70,7 +105,9 @@ Tebrik mesajı projesi. Mimari pivot: çiçek efektleri artık **prosedürel DOM
 
 ## Bekleyen / Engeller
 - Headless tarayıcı yok → ekran görüntüsü üretilemiyor; `/preview` sayfası manuel karşılaştırma için (kullanıcı açıp bakmalı).
-- GitHub push kimlik doğrulaması bekliyor. ESLint timeout çözülmedi.
+- GitHub push kimlik doğrulaması bekliyor. ESLint artık çalışıyor (0 hata) — smoke sunucusu `npx next start -p 3123` + `curl http://127.0.0.1:3123` (localhost resolv etmiyor).
+- Davetiye fotoğrafı görüntülenmesi + **müzik sistemi tamamlandı** (döngülü parçalar, sessiz sentinel). Sırada: RSVP/harita/sayaç/OG genişletmeleri istenirse.
 
 ## Bağımlılıklar
-- GSAP 3.15 (tüm vektör animasyonları), three/fiber/drei/postprocessing (kullanılmıyor ama yüklü), Next 16.2.12.
+- GSAP 3.15 (tüm vektör animasyonları), Next 16.2.12, @supabase/supabase-js 2.111.0, nanoid 6, qr-code-styling 1.9.2. Test: vitest (dev).
+- 3D paketleri (three, @react-three/*) Faz A'da kaldırıldı — tekrar ekleme gereği doğmadıkça kullanma.

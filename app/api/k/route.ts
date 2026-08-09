@@ -4,6 +4,7 @@ import { getClip } from "@/lib/clips";
 import { hasEffect } from "@/lib/effects/presets";
 import { getTemplate } from "@/lib/templates";
 import { TEXT_FONTS } from "@/lib/fonts";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import type { EffectPlacement, GreetingAudio, Position } from "@/lib/types";
 
 function parsePos(raw: unknown): Position | undefined {
@@ -92,6 +93,13 @@ function parseAudio(raw: unknown): GreetingAudio | undefined {
 }
 
 export async function POST(request: Request) {
+  if (!checkRateLimit(clientIp(request))) {
+    return NextResponse.json(
+      { error: "Çok fazla istek gönderdin. Lütfen biraz sonra tekrar dene." },
+      { status: 429 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

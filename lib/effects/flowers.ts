@@ -102,7 +102,6 @@ function petalPath(
 ): string {
   const tipX = (jit - 0.5) * width * 0.3;
   const wl = width * (0.8 + jit * 0.35);
-  const wr = width * (1.08 - jit * 0.25);
   const tipY = -len;
   if (notch > 0) {
     const nx = notch * 0.5;

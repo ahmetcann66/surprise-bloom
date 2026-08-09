@@ -564,7 +564,7 @@ export default function LayoutEditor({
                         <option value="">Varsayılan</option>
                         <option value="once">Bir kez</option>
                         <option value="loop">Sürekli</option>
-                        <option value="every">Her N sn'de</option>
+                        <option value="every">Her N sn&apos;de</option>
                       </select>
                       {ep.repeat === "every" && (
                         <label className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -598,8 +598,8 @@ export default function LayoutEditor({
       </div>
 
       <p className="mt-2 text-center text-xs text-zinc-500 dark:text-zinc-400">
-        Fotoğraf/yazıyı sürükle • emoji marker'larını sürükleyerek her animasyonun
-        başlangıç noktasını ayarla • her efektin boyutunu kendi slider'ından değiştir
+        Fotoğraf/yazıyı sürükle • emoji marker&apos;larını sürükleyerek her animasyonun
+        başlangıç noktasını ayarla • her efektin boyutunu kendi slider&apos;ından değiştir
       </p>
 
       {(photoPos.x !== 50 ||

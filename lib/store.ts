@@ -251,16 +251,28 @@ export async function createMessage(
   };
 
   if (supabase) {
-    const { data, error } = await supabase
-      .from(TABLE)
-      .insert(row)
-      .select()
-      .single();
-    if (error) {
+    // nanoid çakışması (nadir) unique violation (23505) döndürür → yeni id ile tekrar dene.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      row.id = nanoid();
+      const { data, error } = await supabase
+        .from(TABLE)
+        .insert(row)
+        .select()
+        .single();
+      if (!error) {
+        return rowToGreeting(data as GreetingRow);
+      }
+      if (error.code === "23505") continue;
       throw new Error(`Mesaj veritabanına kaydedilemedi. (${error.message})`);
     }
-    return rowToGreeting(data as GreetingRow);
+    throw new Error(
+      "Mesaj veritabanına kaydedilemedi. (tekrar deneme limitine ulaşıldı)",
+    );
   }
+
+  do {
+    row.id = nanoid();
+  } while (fallbackStore.has(row.id));
 
   const greeting: Greeting = {
     id: row.id,

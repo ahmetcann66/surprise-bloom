@@ -95,7 +95,7 @@ export default function VectorFormEffect({
       if (clipRectRef.current) {
         gsap.set(clipRectRef.current, { attr: { y: -140, height: 280 } });
       }
-      setReady(true);
+      requestAnimationFrame(() => setReady(true));
       return;
     }
 
@@ -193,9 +193,9 @@ export default function VectorFormEffect({
     let timer: ReturnType<typeof setInterval> | undefined;
     if (effRepeat === "loop") {
       tl.repeat(-1);
-      setReady(true);
+      queueMicrotask(() => setReady(true));
     } else if (effRepeat === "every") {
-      setReady(true);
+      queueMicrotask(() => setReady(true));
       timer = setInterval(
         () => tl.restart(true),
         Math.min(120, Math.max(3, repeatEvery)) * 1000,

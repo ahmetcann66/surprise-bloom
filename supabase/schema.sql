@@ -56,3 +56,36 @@ create policy "anon_greetings_select" on public.greetings
   using (true);
 
 create index if not exists greetings_created_at_idx on public.greetings (created_at desc);
+
+-- Davetiye linklerini tutan tablo (Faz B — düğün/nikah/sünnet/kutlama).
+create table if not exists public.invitations (
+  id text primary key,
+  theme text not null,
+  name text,
+  event_type text not null,
+  partner_a text not null,
+  partner_b text,
+  event_date text not null,
+  time text,
+  venue text not null,
+  city text,
+  address text,
+  message text,
+  audio jsonb,
+  photo text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.invitations enable row level security;
+
+drop policy if exists "anon_invitations_insert" on public.invitations;
+create policy "anon_invitations_insert" on public.invitations
+  for insert to anon
+  with check (true);
+
+drop policy if exists "anon_invitations_select" on public.invitations;
+create policy "anon_invitations_select" on public.invitations
+  for select to anon
+  using (true);
+
+create index if not exists invitations_created_at_idx on public.invitations (created_at desc);

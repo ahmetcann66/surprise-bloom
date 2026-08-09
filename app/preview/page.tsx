@@ -4,7 +4,6 @@ import { useState } from "react";
 import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
 import { getEffect } from "@/lib/effects/presets";
-import { isVectorFlower } from "@/lib/effects/flowers";
 
 function DemoCard({
   title,

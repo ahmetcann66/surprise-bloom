@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { getClip } from "@/lib/clips";
+import { getMusicTrack, playOnce, musicLabel } from "@/lib/music";
 import type { GreetingAudio } from "@/lib/types";
 
 function resolveAudioContext(): typeof AudioContext {
@@ -34,9 +35,7 @@ export default function GreetingAudioButton({ audio }: GreetingAudioProps) {
   const currentAudio = audio;
 
   const label =
-    currentAudio.type === "clip"
-      ? getClip(currentAudio.value)?.label ?? "Müzik"
-      : "Ses kaydı";
+    musicLabel(currentAudio) ?? (currentAudio.type === "clip" ? "Müzik" : "Ses kaydı");
 
   function stop() {
     if (currentAudio.type === "clip") {
@@ -52,15 +51,18 @@ export default function GreetingAudioButton({ audio }: GreetingAudioProps) {
   function play() {
     if (currentAudio.type === "clip") {
       const clip = getClip(currentAudio.value);
-      if (!clip) return;
+      const track = getMusicTrack(currentAudio.value);
+      if (!clip && !track) return;
       ctxRef.current?.close().catch(() => {});
       const Ctor = resolveAudioContext();
       const ctx = new Ctor();
       ctxRef.current = ctx;
       ctx.resume().then(() => {
-        clip.play(ctx);
+        if (clip) clip.play(ctx);
+        else if (track) playOnce(ctx, track);
         setPlaying(true);
-        window.setTimeout(() => setPlaying(false), clip.duration * 1000);
+        const duration = (clip?.duration ?? 0) || (track ? track.beats * (60 / track.bpm) : 0);
+        window.setTimeout(() => setPlaying(false), duration * 1000);
       });
     } else {
       const el = new Audio(currentAudio.value);

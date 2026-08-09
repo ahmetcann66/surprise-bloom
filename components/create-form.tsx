@@ -3,12 +3,19 @@
 import { useState } from "react";
 import { getPalette, templates } from "@/lib/templates";
 import { clips } from "@/lib/clips";
+import { musicTracks, SILENT_CLIP } from "@/lib/music";
 import type { EffectPlacement, GreetingAudio, TemplateId } from "@/lib/types";
 import {
   EFFECT_CATEGORIES,
   EFFECTS,
   DEFAULT_EFFECT_BY_TEMPLATE,
 } from "@/lib/effects/presets";
+import { getThemeForEvent } from "@/lib/invitation/themes";
+import {
+  EVENT_TYPE_EMOJIS,
+  EVENT_TYPE_LABELS,
+  type EventType,
+} from "@/lib/invitation/types";
 import QrCode from "@/components/qr-code";
 import AudioRecorder from "@/components/audio-recorder";
 import GreetingAudioButton from "@/components/greeting-audio";
@@ -39,9 +46,45 @@ const DEFAULT_LAYOUT: LayoutState = {
   effects: [{ id: DEFAULT_EFFECT_BY_TEMPLATE[templates[0].id], scale: 1 }],
 };
 
+interface InviteState {
+  eventType: EventType;
+  partnerA: string;
+  partnerB: string;
+  date: string;
+  time: string;
+  venue: string;
+  city: string;
+  address: string;
+}
+
+const DEFAULT_INVITE: InviteState = {
+  eventType: "dugun",
+  partnerA: "",
+  partnerB: "",
+  date: "",
+  time: "",
+  venue: "",
+  city: "",
+  address: "",
+};
+
+function partnerLabels(et: EventType): { a: string; b?: string } {
+  switch (et) {
+    case "dugun":
+    case "nikah":
+      return { a: "Gelinin adı", b: "Damadın adı" };
+    case "sunnet":
+      return { a: "Çocuğun adı" };
+    default:
+      return { a: "Kutlanan isim", b: "İkinci isim (opsiyonel)" };
+  }
+}
+
 export default function CreateForm() {
+  const [mode, setMode] = useState<"greeting" | "invitation">("greeting");
   const [templateId, setTemplateId] = useState<TemplateId>(templates[0].id);
   const [paletteId, setPaletteId] = useState<string>(templates[0].palettes[0].id);
+  const [invite, setInvite] = useState<InviteState>(DEFAULT_INVITE);
   const [name, setName] = useState("");
   const [message, setMessage] = useState("");
   const [layout, setLayout] = useState<LayoutState>(DEFAULT_LAYOUT);
@@ -53,11 +96,22 @@ export default function CreateForm() {
   const [created, setCreated] = useState<CreatedLink | null>(null);
 
   const selectedTemplate = templates.find((t) => t.id === templateId)!;
+  const invTheme = getThemeForEvent(invite.eventType);
+  const labels = partnerLabels(invite.eventType);
 
-  function selectTemplate(id: TemplateId) {
+  function selectGreeting(id: TemplateId) {
+    setMode("greeting");
     setTemplateId(id);
     const t = templates.find((x) => x.id === id)!;
     setPaletteId(t.palettes[0].id);
+  }
+
+  function selectInvitation() {
+    setMode("invitation");
+  }
+
+  function setInviteField<K extends keyof InviteState>(key: K, value: InviteState[K]) {
+    setInvite((prev) => ({ ...prev, [key]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -65,6 +119,38 @@ export default function CreateForm() {
     setCreating(true);
     setError("");
     try {
+      if (mode === "invitation") {
+        const res = await fetch("/api/davet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            themeId: invTheme.id,
+            eventType: invite.eventType,
+            name: name.trim() || undefined,
+            partnerA: invite.partnerA.trim(),
+            partnerB: invite.partnerB.trim() || undefined,
+            date: invite.date,
+            time: invite.time || undefined,
+            venue: invite.venue.trim(),
+            city: invite.city.trim() || undefined,
+            address: invite.address.trim() || undefined,
+            message: message.trim() || undefined,
+            audio: audio ?? undefined,
+            photo: photo,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || "Bir hata oluştu.");
+          return;
+        }
+        setCreated({
+          url: data.url as string,
+          fullUrl: `${window.location.origin}${data.url}`,
+        });
+        return;
+      }
+
       const res = await fetch("/api/k", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,27 +208,36 @@ export default function CreateForm() {
 
   function reset() {
     setCreated(null);
+    setMode("greeting");
     setName("");
     setMessage("");
     setLayout(DEFAULT_LAYOUT);
+    setInvite(DEFAULT_INVITE);
     setAudio(null);
     setPhoto(undefined);
     setVideo(undefined);
   }
 
+  const qrTheme = mode === "invitation" ? invTheme : getPalette(selectedTemplate, paletteId);
+  const qrEmoji = mode === "invitation" ? invTheme.emoji : selectedTemplate.emoji;
+
   return (
     <div className="mx-auto w-full max-w-xl px-6 py-12 sm:py-16">
       <h1 className="text-center text-3xl font-bold sm:text-4xl">
-        Animasyonlu Tebrik Linki Oluştur
+        {mode === "invitation"
+          ? "Animasyonlu Davetiye Oluştur"
+          : "Animasyonlu Tebrik Linki Oluştur"}
       </h1>
       <p className="mt-3 text-center text-zinc-500 dark:text-zinc-400">
-        Şablon seç, isim ve mesajı yaz, paylaşmaya hazır özel linkini al.
+        {mode === "invitation"
+          ? "Olay tipini seç, isim ve tarihi gir, paylaşmaya hazır zarf linkini al."
+          : "Şablon seç, isim ve mesajı yaz, paylaşmaya hazır özel linkini al."}
       </p>
 
       {created ? (
         <div className="mt-10 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
           <p className="text-center text-sm font-medium text-emerald-600 dark:text-emerald-400">
-            Linkin hazır!
+            {mode === "invitation" ? "Davetiyen hazır!" : "Linkin hazır!"}
           </p>
           <p className="mt-2 break-all rounded-lg bg-zinc-100 p-3 text-center text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
             {created.fullUrl}
@@ -165,34 +260,58 @@ export default function CreateForm() {
             </a>
           </div>
           <div className="mt-6 flex justify-center">
-            <QrCode
-              value={created.fullUrl}
-              theme={getPalette(selectedTemplate, paletteId)}
-              emoji={selectedTemplate.emoji}
-            />
+            <QrCode value={created.fullUrl} theme={qrTheme} emoji={qrEmoji} />
           </div>
           <button
             type="button"
             onClick={reset}
             className="mt-4 w-full text-center text-sm text-zinc-500 underline-offset-4 hover:underline"
           >
-            Yeni link oluştur
+            Yeni oluştur
           </button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-10 space-y-6">
           <fieldset>
             <legend className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Şablon seç
+              Ürün seç
             </legend>
             <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={selectInvitation}
+                className={`rounded-xl border p-4 text-left transition-all ${
+                  mode === "invitation"
+                    ? "border-pink-500 ring-2 ring-pink-500/30"
+                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                }`}
+                style={
+                  mode === "invitation"
+                    ? { background: `${invTheme.centerColor}1a` }
+                    : undefined
+                }
+              >
+                <span className="block text-2xl">💌</span>
+                <span className="mt-1 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                  Davetiye
+                </span>
+                <span className="mt-2 flex gap-1">
+                  {invTheme.petalColors.slice(0, 4).map((c, i) => (
+                    <span
+                      key={i}
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: c }}
+                    />
+                  ))}
+                </span>
+              </button>
               {templates.map((t) => {
-                const active = t.id === templateId;
+                const active = mode === "greeting" && t.id === templateId;
                 return (
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => selectTemplate(t.id)}
+                    onClick={() => selectGreeting(t.id)}
                     className={`rounded-xl border p-4 text-left transition-all ${
                       active
                         ? "border-pink-500 ring-2 ring-pink-500/30"
@@ -223,227 +342,509 @@ export default function CreateForm() {
             </div>
           </fieldset>
 
-          <div>
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Renk paleti
-            </span>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {selectedTemplate.palettes.map((pal) => {
-                const active = pal.id === paletteId;
-                return (
-                  <button
-                    key={pal.id}
-                    type="button"
-                    onClick={() => setPaletteId(pal.id)}
-                    className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                      active
-                        ? "border-pink-500 ring-2 ring-pink-500/30"
-                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                    }`}
-                  >
-                    <span className="flex -space-x-1">
-                      {pal.petalColors.slice(0, 3).map((c, i) => (
-                        <span
-                          key={i}
-                          className="h-3.5 w-3.5 rounded-full border border-white dark:border-zinc-900"
-                          style={{ background: c }}
-                        />
-                      ))}
-                    </span>
-                    {pal.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="name"
-              className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
-            >
-              Alıcının ismi{" "}
-              <span className="font-normal text-zinc-400">(opsiyonel)</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="örn. Ayşe"
-              maxLength={80}
-              className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="message"
-              className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
-            >
-              Mesaj{" "}
-              <span className="font-normal text-zinc-400">(opsiyonel)</span>
-            </label>
-            <textarea
-              id="message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Kişisel bir not ekleyebilirsin"
-              rows={3}
-              maxLength={2000}
-              className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
-            />
-          </div>
-
-          <div>
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Efekt seç{" "}
-              <span className="font-normal text-zinc-400">
-                (birden fazla seçebilirsin — her biri kendi başlangıç
-                noktasından başlar)
-              </span>
-            </span>
-            <div className="mt-3 space-y-4">
-              {EFFECT_CATEGORIES.map((cat) => {
-                const list = Object.values(EFFECTS).filter(
-                  (e) => e.category === cat.id,
-                );
-                return (
-                  <div key={cat.id}>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                      {cat.label}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {list.map((ef) => {
-                        const active = layout.effects.some(
-                          (e) => e.id === ef.id,
-                        );
-                        return (
-                          <button
-                            key={ef.id}
-                            type="button"
-                            onClick={() =>
-                              setLayout((prev) => ({
-                                ...prev,
-                                effects: active
-                                  ? prev.effects.filter((e) => e.id !== ef.id)
-                                  : [...prev.effects, { id: ef.id, scale: 1 }],
-                              }))
-                            }
-                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                              active
-                                ? "border-pink-500 ring-2 ring-pink-500/30"
-                                : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                            }`}
-                          >
-                            <span aria-hidden>{ef.emoji}</span>
-                            {ef.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div>
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Ses ekle{" "}
-              <span className="font-normal text-zinc-400">(opsiyonel)</span>
-            </span>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setAudio(null)}
-                className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                  audio === null
-                    ? "border-zinc-500 ring-2 ring-zinc-500/30 dark:border-zinc-300"
-                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                }`}
-              >
-                🔇 Ses yok
-              </button>
-              {clips.map((c) => {
-                const active = audio?.type === "clip" && audio.value === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setAudio({ type: "clip", value: c.id })}
-                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                      active
-                        ? "border-pink-500 ring-2 ring-pink-500/30"
-                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                    }`}
-                  >
-                    {c.emoji} {c.label}
-                  </button>
-                );
-              })}
-            </div>
-            <AudioRecorder
-              onResult={(dataUrl) =>
-                setAudio(dataUrl ? { type: "recording", value: dataUrl } : null)
-              }
-            />
-            {audio && (
-              <div className="mt-3 flex items-center gap-2">
-                <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Seçilen ses:
+          {mode === "greeting" ? (
+            <>
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Renk paleti
                 </span>
-                <GreetingAudioButton audio={audio} />
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {selectedTemplate.palettes.map((pal) => {
+                    const active = pal.id === paletteId;
+                    return (
+                      <button
+                        key={pal.id}
+                        type="button"
+                        onClick={() => setPaletteId(pal.id)}
+                        className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                          active
+                            ? "border-pink-500 ring-2 ring-pink-500/30"
+                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                        }`}
+                      >
+                        <span className="flex -space-x-1">
+                          {pal.petalColors.slice(0, 3).map((c, i) => (
+                            <span
+                              key={i}
+                              className="h-3.5 w-3.5 rounded-full border border-white dark:border-zinc-900"
+                              style={{ background: c }}
+                            />
+                          ))}
+                        </span>
+                        {pal.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            )}
-          </div>
 
-          <div>
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Fotoğraf{" "}
-              <span className="font-normal text-zinc-400">(opsiyonel)</span>
-            </span>
-            <PhotoUpload onResult={(url) => setPhoto(url ?? undefined)} />
-          </div>
+              <div>
+                <label
+                  htmlFor="name"
+                  className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                >
+                  Alıcının ismi{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="örn. Ayşe"
+                  maxLength={80}
+                  className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
 
-          <div>
-            <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Video{" "}
-              <span className="font-normal text-zinc-400">
-                (opsiyonel, en fazla 15 sn)
-              </span>
-            </span>
-            <VideoUpload onResult={(url) => setVideo(url ?? undefined)} />
-          </div>
+              <div>
+                <label
+                  htmlFor="message"
+                  className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                >
+                  Mesaj{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </label>
+                <textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Kişisel bir not ekleyebilirsin"
+                  rows={3}
+                  maxLength={2000}
+                  className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
 
-          <LayoutEditor
-            photo={photo}
-            video={video}
-            name={name}
-            message={message}
-            theme={getPalette(selectedTemplate, paletteId)}
-            effects={layout.effects}
-            photoPos={layout.photo}
-            textPos={layout.text}
-            videoScale={layout.videoScale}
-            animationSpeed={layout.animationSpeed}
-            onSpeedChange={(v) =>
-              setLayout((prev) => ({ ...prev, animationSpeed: v }))
-            }
-            textFont={layout.textFont}
-            onFontChange={(f) =>
-              setLayout((prev) => ({ ...prev, textFont: f }))
-            }
-            onChange={(p, t, v, e) =>
-              setLayout((prev) => ({
-                ...prev,
-                photo: p,
-                text: t,
-                videoScale: v,
-                effects: e,
-              }))
-            }
-          />
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Efekt seç{" "}
+                  <span className="font-normal text-zinc-400">
+                    (birden fazla seçebilirsin — her biri kendi başlangıç
+                    noktasından başlar)
+                  </span>
+                </span>
+                <div className="mt-3 space-y-4">
+                  {EFFECT_CATEGORIES.map((cat) => {
+                    const list = Object.values(EFFECTS).filter(
+                      (e) => e.category === cat.id,
+                    );
+                    return (
+                      <div key={cat.id}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                          {cat.label}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {list.map((ef) => {
+                            const active = layout.effects.some(
+                              (e) => e.id === ef.id,
+                            );
+                            return (
+                              <button
+                                key={ef.id}
+                                type="button"
+                                onClick={() =>
+                                  setLayout((prev) => ({
+                                    ...prev,
+                                    effects: active
+                                      ? prev.effects.filter((e) => e.id !== ef.id)
+                                      : [...prev.effects, { id: ef.id, scale: 1 }],
+                                  }))
+                                }
+                                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                                  active
+                                    ? "border-pink-500 ring-2 ring-pink-500/30"
+                                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                                }`}
+                              >
+                                <span aria-hidden>{ef.emoji}</span>
+                                {ef.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Ses ekle{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </span>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAudio(null)}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                      audio === null
+                        ? "border-zinc-500 ring-2 ring-zinc-500/30 dark:border-zinc-300"
+                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                    }`}
+                  >
+                    🔇 Ses yok
+                  </button>
+                  {clips.map((c) => {
+                    const active = audio?.type === "clip" && audio.value === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setAudio({ type: "clip", value: c.id })}
+                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                          active
+                            ? "border-pink-500 ring-2 ring-pink-500/30"
+                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                        }`}
+                      >
+                        {c.emoji} {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <AudioRecorder
+                  onResult={(dataUrl) =>
+                    setAudio(dataUrl ? { type: "recording", value: dataUrl } : null)
+                  }
+                />
+                {audio && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Seçilen ses:
+                    </span>
+                    <GreetingAudioButton audio={audio} />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Fotoğraf{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </span>
+                <PhotoUpload onResult={(url) => setPhoto(url ?? undefined)} />
+              </div>
+
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Video{" "}
+                  <span className="font-normal text-zinc-400">
+                    (opsiyonel, en fazla 15 sn)
+                  </span>
+                </span>
+                <VideoUpload onResult={(url) => setVideo(url ?? undefined)} />
+              </div>
+
+              <LayoutEditor
+                photo={photo}
+                video={video}
+                name={name}
+                message={message}
+                theme={getPalette(selectedTemplate, paletteId)}
+                effects={layout.effects}
+                photoPos={layout.photo}
+                textPos={layout.text}
+                videoScale={layout.videoScale}
+                animationSpeed={layout.animationSpeed}
+                onSpeedChange={(v) =>
+                  setLayout((prev) => ({ ...prev, animationSpeed: v }))
+                }
+                textFont={layout.textFont}
+                onFontChange={(f) =>
+                  setLayout((prev) => ({ ...prev, textFont: f }))
+                }
+                onChange={(p, t, v, e) =>
+                  setLayout((prev) => ({
+                    ...prev,
+                    photo: p,
+                    text: t,
+                    videoScale: v,
+                    effects: e,
+                  }))
+                }
+              />
+            </>
+          ) : (
+            <>
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Etkinlik tipi
+                </span>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map((et) => {
+                    const active = invite.eventType === et;
+                    return (
+                      <button
+                        key={et}
+                        type="button"
+                        onClick={() => setInviteField("eventType", et)}
+                        className={`flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                          active
+                            ? "border-pink-500 ring-2 ring-pink-500/30"
+                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                        }`}
+                      >
+                        <span aria-hidden>{EVENT_TYPE_EMOJIS[et]}</span>
+                        {EVENT_TYPE_LABELS[et]}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                  <span className="flex -space-x-1">
+                    {invTheme.petalColors.slice(0, 4).map((c, i) => (
+                      <span
+                        key={i}
+                        className="h-3 w-3 rounded-full border border-white dark:border-zinc-900"
+                        style={{ background: c }}
+                      />
+                    ))}
+                  </span>
+                  Tema: {invTheme.label}
+                </p>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="name"
+                  className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                >
+                  Alıcının ismi{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="örn. Ayşe"
+                  maxLength={80}
+                  className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="partnerA"
+                    className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                  >
+                    {labels.a}
+                  </label>
+                  <input
+                    id="partnerA"
+                    type="text"
+                    required
+                    value={invite.partnerA}
+                    onChange={(e) => setInviteField("partnerA", e.target.value)}
+                    placeholder="örn. Merve"
+                    maxLength={80}
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                {labels.b && (
+                  <div>
+                    <label
+                      htmlFor="partnerB"
+                      className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                    >
+                      {labels.b}
+                    </label>
+                    <input
+                      id="partnerB"
+                      type="text"
+                      value={invite.partnerB}
+                      onChange={(e) => setInviteField("partnerB", e.target.value)}
+                      placeholder="örn. Kerem"
+                      maxLength={80}
+                      className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="date"
+                    className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                  >
+                    Tarih
+                  </label>
+                  <input
+                    id="date"
+                    type="date"
+                    required
+                    value={invite.date}
+                    onChange={(e) => setInviteField("date", e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="time"
+                    className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                  >
+                    Saat{" "}
+                    <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                  </label>
+                  <input
+                    id="time"
+                    type="time"
+                    value={invite.time}
+                    onChange={(e) => setInviteField("time", e.target.value)}
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="venue"
+                  className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                >
+                  Mekan
+                </label>
+                <input
+                  id="venue"
+                  type="text"
+                  required
+                  value={invite.venue}
+                  onChange={(e) => setInviteField("venue", e.target.value)}
+                  placeholder="örn. Yalı Konakları Düğün Salonu"
+                  maxLength={160}
+                  className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="city"
+                    className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                  >
+                    Şehir{" "}
+                    <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                  </label>
+                  <input
+                    id="city"
+                    type="text"
+                    value={invite.city}
+                    onChange={(e) => setInviteField("city", e.target.value)}
+                    placeholder="örn. İzmir"
+                    maxLength={80}
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="address"
+                    className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                  >
+                    Adres{" "}
+                    <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                  </label>
+                  <input
+                    id="address"
+                    type="text"
+                    value={invite.address}
+                    onChange={(e) => setInviteField("address", e.target.value)}
+                    placeholder="örn. Sahil Cad. No:12"
+                    maxLength={240}
+                    className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="message"
+                  className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
+                >
+                  Not{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </label>
+                <textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Davetlilere kişisel bir not ekleyebilirsin"
+                  rows={3}
+                  maxLength={2000}
+                  className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+                />
+              </div>
+
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Fotoğraf{" "}
+                  <span className="font-normal text-zinc-400">(opsiyonel)</span>
+                </span>
+                <PhotoUpload onResult={(url) => setPhoto(url ?? undefined)} />
+              </div>
+
+              <div>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Müzik{" "}
+                  <span className="font-normal text-zinc-400">
+                    (opsiyonel — seçmezsen davetiyede sihirli melodi çalar)
+                  </span>
+                </span>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAudio({ type: "clip", value: SILENT_CLIP })}
+                    className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                      audio === null ||
+                      (audio?.type === "clip" && audio.value === SILENT_CLIP)
+                        ? "border-zinc-500 ring-2 ring-zinc-500/30 dark:border-zinc-300"
+                        : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                    }`}
+                  >
+                    🔇 Müzik yok
+                  </button>
+                  {musicTracks.map((t) => {
+                    const active = audio?.type === "clip" && audio.value === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setAudio({ type: "clip", value: t.id })}
+                        className={`rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                          active
+                            ? "border-pink-500 ring-2 ring-pink-500/30"
+                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                        }`}
+                      >
+                        {t.emoji} {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <AudioRecorder
+                  onResult={(dataUrl) =>
+                    setAudio(
+                      dataUrl
+                        ? { type: "recording", value: dataUrl }
+                        : { type: "clip", value: SILENT_CLIP },
+                    )
+                  }
+                />
+                {audio &&
+                  audio.type === "clip" &&
+                  audio.value !== SILENT_CLIP && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                        Seçilen ses:
+                      </span>
+                      <GreetingAudioButton audio={audio} />
+                    </div>
+                  )}
+              </div>
+            </>
+          )}
 
           {error && (
             <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
@@ -456,7 +857,11 @@ export default function CreateForm() {
             disabled={creating}
             className="w-full rounded-full bg-pink-600 px-5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {creating ? "Oluşturuluyor…" : "Linki Oluştur"}
+            {creating
+              ? "Oluşturuluyor…"
+              : mode === "invitation"
+                ? "Davetiyeyi Oluştur"
+                : "Linki Oluştur"}
           </button>
         </form>
       )}
