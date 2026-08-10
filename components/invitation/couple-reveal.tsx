@@ -9,7 +9,11 @@ import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
 import { getTextFont } from "@/lib/fonts";
 import { formatDate, type EventType } from "@/lib/invitation/types";
-import type { InvitationTheme } from "@/lib/invitation/themes";
+import {
+  getInvitationAnimation,
+  type InvitationAnimationId,
+  type InvitationTheme,
+} from "@/lib/invitation/themes";
 
 interface CoupleRevealProps {
   theme: InvitationTheme;
@@ -25,6 +29,16 @@ interface CoupleRevealProps {
   photo?: string;
   recipientName?: string | null;
   reducedMotion: boolean;
+  /** Açılış animasyonu id'si (varsayılan: "cicekler"). */
+  animation?: InvitationAnimationId;
+  /** Davetiye yazısı font id'si (varsayılan: "zarif"). */
+  textFont?: string;
+  /** Davetiye yazısı boyut çarpanı (varsayılan: 1). */
+  textSize?: number;
+  /** Açılış animasyonu hız çarpanı (varsayılan: 1). */
+  animationSpeed?: number;
+  /** Açılış animasyonu boyut çarpanı (varsayılan: 1). */
+  animationScale?: number;
 }
 
 export default function CoupleReveal({
@@ -41,6 +55,11 @@ export default function CoupleReveal({
   photo,
   recipientName,
   reducedMotion,
+  animation = "cicekler",
+  textFont = "zarif",
+  textSize = 1,
+  animationSpeed = 1,
+  animationScale = 1,
 }: CoupleRevealProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const figARef = useRef<HTMLDivElement>(null);
@@ -52,7 +71,7 @@ export default function CoupleReveal({
   const figures = personas.map((p) => buildFigure(p, theme));
   const single = personas.length === 1;
   const monogram = partnerB ? `${partnerA} & ${partnerB}` : partnerA;
-  const fontFamily = getTextFont("zarif");
+  const fontFamily = getTextFont(textFont);
 
   useLayoutEffect(() => {
     const figA = figARef.current;
@@ -95,45 +114,67 @@ export default function CoupleReveal({
     };
   }, [reducedMotion, personas.length]);
 
-  const gold = getEffect("goldsparkle");
+  const anim = getInvitationAnimation(animation) ?? getInvitationAnimation("cicekler")!;
+  const ambient = getEffect(anim.ambient);
+  const burstFx = getEffect(anim.burst);
 
   return (
     <div
       className="relative flex min-h-dvh w-full flex-col overflow-hidden"
       style={{ background: theme.background, color: theme.textColor }}
     >
-      {/* ambiyans + yan çiçekler */}
-      <div className="pointer-events-none absolute inset-0 z-[1]">
+      {/* ambiyans */}
+      <div
+        className="pointer-events-none absolute inset-0 z-[1]"
+        style={{
+          transform: `scale(${animationScale})`,
+          transformOrigin: "50% 42%",
+        }}
+      >
         <EffectStage
-          config={gold}
+          config={ambient}
           active
           reducedMotion={reducedMotion}
           origin={{ x: 50, y: 42 }}
           repeat="loop"
+          speed={animationSpeed}
         />
       </div>
-      <VectorFormEffect
-        config={getEffect("rose")}
-        active
-        reducedMotion={reducedMotion}
-        position={{ x: 14, y: 48 }}
-        scale={1.5}
-      />
-      <VectorFormEffect
-        config={getEffect("peony")}
-        active
-        reducedMotion={reducedMotion}
-        position={{ x: 86, y: 48 }}
-        scale={1.5}
-      />
+      {anim.flowers && (
+        <>
+          <VectorFormEffect
+            config={getEffect("rose")}
+            active
+            reducedMotion={reducedMotion}
+            position={{ x: 14, y: 48 }}
+            scale={1.5 * animationScale}
+            speed={animationSpeed}
+          />
+          <VectorFormEffect
+            config={getEffect("peony")}
+            active
+            reducedMotion={reducedMotion}
+            position={{ x: 86, y: 48 }}
+            scale={1.5 * animationScale}
+            speed={animationSpeed}
+          />
+        </>
+      )}
 
       {burst && (
-        <div className="pointer-events-none absolute inset-0 z-[1]">
+        <div
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            transform: `scale(${animationScale})`,
+            transformOrigin: "50% 30%",
+          }}
+        >
           <EffectStage
-            config={getEffect("heartburst")}
+            config={burstFx}
             active
             reducedMotion={reducedMotion}
             origin={{ x: 50, y: 30 }}
+            speed={animationSpeed}
           />
         </div>
       )}
@@ -169,7 +210,15 @@ export default function CoupleReveal({
         >
           {recipientName ? `Sevgili ${recipientName}` : "Davetlisin"}
         </p>
-        <h1 className="mt-2 text-3xl font-bold sm:text-4xl" style={{ fontFamily }}>
+        <h1
+          className="mt-2 font-bold"
+          style={{
+            fontFamily,
+            fontSize: `clamp(${(1.7 * textSize).toFixed(2)}rem, ${
+              4 * textSize
+            }vw, ${(2.4 * textSize).toFixed(2)}rem)`,
+          }}
+        >
           {monogram}
         </h1>
         {photo && (

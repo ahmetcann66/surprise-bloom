@@ -9,7 +9,15 @@ import {
   EFFECTS,
   DEFAULT_EFFECT_BY_TEMPLATE,
 } from "@/lib/effects/presets";
-import { getThemeForEvent } from "@/lib/invitation/themes";
+import {
+  applyPalette,
+  getInvitationAnimation,
+  getThemeForEvent,
+  invitationPalettes,
+  INVITATION_ANIMATIONS,
+  INVITATION_ANIMATION_CATEGORIES,
+  type InvitationAnimationId,
+} from "@/lib/invitation/themes";
 import {
   EVENT_TYPE_EMOJIS,
   EVENT_TYPE_LABELS,
@@ -20,6 +28,7 @@ import MusicField from "@/components/music-field";
 import PhotoUpload from "@/components/photo-upload";
 import VideoUpload from "@/components/video-upload";
 import LayoutEditor, { type Pos } from "@/components/layout-editor";
+import InvitePreview from "@/components/invitation/invite-preview";
 
 interface CreatedLink {
   url: string;
@@ -53,6 +62,14 @@ interface InviteState {
   venue: string;
   city: string;
   address: string;
+  /** Tema renk paleti ("" = tema varsayılanı). */
+  paletteId: string;
+  animation: InvitationAnimationId;
+  envelopeAnimation: boolean;
+  textFont: string;
+  textSize: number;
+  animationSpeed: number;
+  animationScale: number;
 }
 
 const DEFAULT_INVITE: InviteState = {
@@ -64,6 +81,13 @@ const DEFAULT_INVITE: InviteState = {
   venue: "",
   city: "",
   address: "",
+  paletteId: "",
+  animation: "cicekler",
+  envelopeAnimation: true,
+  textFont: "zarif",
+  textSize: 1,
+  animationSpeed: 1,
+  animationScale: 1,
 };
 
 function partnerLabels(et: EventType): { a: string; b?: string } {
@@ -129,6 +153,10 @@ export default function CreateForm({
 
   const selectedTemplate = templates.find((t) => t.id === templateId)!;
   const invTheme = getThemeForEvent(invite.eventType);
+  const appliedTheme = applyPalette(invTheme, invite.paletteId || undefined);
+  const invitePaletteOptions = invitationPalettes(invite.eventType);
+  const inviteAnimation =
+    getInvitationAnimation(invite.animation) ?? INVITATION_ANIMATIONS[0];
   const labels = partnerLabels(invite.eventType);
 
   function selectGreeting(id: TemplateId) {
@@ -157,6 +185,13 @@ export default function CreateForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             themeId: invTheme.id,
+            paletteId: invite.paletteId || undefined,
+            animation: invite.animation,
+            envelopeAnimation: invite.envelopeAnimation,
+            textFont: invite.textFont,
+            textSize: invite.textSize,
+            animationSpeed: invite.animationSpeed,
+            animationScale: invite.animationScale,
             eventType: invite.eventType,
             name: name.trim() || undefined,
             partnerA: invite.partnerA.trim(),
@@ -250,8 +285,9 @@ export default function CreateForm({
     setVideo(undefined);
   }
 
-  const qrTheme = mode === "invitation" ? invTheme : getPalette(selectedTemplate, paletteId);
-  const qrEmoji = mode === "invitation" ? invTheme.emoji : selectedTemplate.emoji;
+  const qrTheme =
+    mode === "invitation" ? appliedTheme : getPalette(selectedTemplate, paletteId);
+  const qrEmoji = mode === "invitation" ? appliedTheme.emoji : selectedTemplate.emoji;
 
   return (
     <>
@@ -573,7 +609,13 @@ export default function CreateForm({
                       <button
                         key={et}
                         type="button"
-                        onClick={() => setInviteField("eventType", et)}
+                        onClick={() =>
+                          setInvite((prev) => ({
+                            ...prev,
+                            eventType: et,
+                            paletteId: "",
+                          }))
+                        }
                         className={`flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
                           active
                             ? "border-pink-500 ring-2 ring-pink-500/30"
@@ -586,21 +628,164 @@ export default function CreateForm({
                     );
                   })}
                 </div>
-                <p className="mt-3 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                  <span className="flex -space-x-1">
-                    {invTheme.petalColors.slice(0, 4).map((c, i) => (
-                      <span
-                        key={i}
-                        className="h-3 w-3 rounded-full border border-white dark:border-zinc-900"
-                        style={{ background: c }}
-                      />
-                    ))}
-                  </span>
-                  Tema: {invTheme.label}
-                </p>
               </FadeUp>
 
               <FadeUp animated={animated} delay={0.1}>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Zarf rengi &amp; tema
+                </span>
+                <div className="mt-3 grid gap-2 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
+                  {invitePaletteOptions.map((pal) => {
+                    const active =
+                      invite.paletteId === ""
+                        ? pal.id === invTheme.id
+                        : invite.paletteId === pal.id;
+                    return (
+                      <button
+                        key={pal.id}
+                        type="button"
+                        onClick={() =>
+                          setInviteField(
+                            "paletteId",
+                            pal.id === invTheme.id ? "" : pal.id,
+                          )
+                        }
+                        className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                          active
+                            ? "border-pink-500 ring-2 ring-pink-500/30"
+                            : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                        }`}
+                      >
+                        <span
+                          className="h-3.5 w-3.5 shrink-0 rounded-full border border-white dark:border-zinc-900"
+                          style={{
+                            background: pal.envelope.seal,
+                          }}
+                        />
+                        <span className="truncate">{pal.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </FadeUp>
+
+              <FadeUp animated={animated} delay={0.15}>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Açılış animasyonu
+                </span>
+                <div className="mt-3 space-y-4">
+                  {INVITATION_ANIMATION_CATEGORIES.map((cat) => {
+                    const items = INVITATION_ANIMATIONS.filter(
+                      (a) => a.category === cat.id,
+                    );
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={cat.id}>
+                        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+                          <span aria-hidden>{cat.emoji}</span>
+                          {cat.label}
+                        </p>
+                        <div className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                          {items.map((a) => {
+                            const active = invite.animation === a.id;
+                            return (
+                              <button
+                                key={a.id}
+                                type="button"
+                                onClick={() => setInviteField("animation", a.id)}
+                                className={`rounded-xl border p-3 text-left transition-all ${
+                                  active
+                                    ? "border-pink-500 ring-2 ring-pink-500/30"
+                                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                                }`}
+                              >
+                                <span className="block text-lg" aria-hidden>
+                                  {a.emoji}
+                                </span>
+                                <span className="mt-1 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                  {a.label}
+                                </span>
+                                <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                                  {a.description}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </FadeUp>
+
+              <FadeUp animated={animated} delay={0.2}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setInviteField(
+                      "envelopeAnimation",
+                      !invite.envelopeAnimation,
+                    )
+                  }
+                  className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-white px-4 py-3 text-left dark:border-zinc-800 dark:bg-zinc-900"
+                >
+                  <span>
+                    <span className="block text-sm font-medium text-zinc-700 dark:text-zinc-200">
+                      Zarf açılış animasyonu
+                    </span>
+                    <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                      {invite.envelopeAnimation
+                        ? "Zarf animasyonlu açılır (önerilir)"
+                        : "Zarf sabit görünür, doğrudan davetiyeye geçer"}
+                    </span>
+                  </span>
+                  <span
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+                      invite.envelopeAnimation ? "bg-pink-500" : "bg-zinc-300 dark:bg-zinc-600"
+                    }`}
+                    aria-hidden
+                  >
+                    <span
+                      className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                        invite.envelopeAnimation
+                          ? "translate-x-[22px]"
+                          : "translate-x-0.5"
+                      }`}
+                    />
+                  </span>
+                </button>
+              </FadeUp>
+
+              <FadeUp animated={animated} delay={0.25}>
+                <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                  Önizleme
+                </span>
+                <div className="mt-3">
+                  <InvitePreview
+                    theme={appliedTheme}
+                    eventType={invite.eventType}
+                    animation={inviteAnimation}
+                    envelopeAnimated={invite.envelopeAnimation}
+                    partnerA={invite.partnerA}
+                    partnerB={invite.partnerB}
+                    recipientName={name}
+                    textFont={invite.textFont}
+                    textSize={invite.textSize}
+                    animationSpeed={invite.animationSpeed}
+                    animationScale={invite.animationScale}
+                    onFontChange={(f) => setInviteField("textFont", f)}
+                    onTextSizeChange={(v) => setInviteField("textSize", v)}
+                    onAnimationSpeedChange={(v) =>
+                      setInviteField("animationSpeed", v)
+                    }
+                    onAnimationScaleChange={(v) =>
+                      setInviteField("animationScale", v)
+                    }
+                  />
+                </div>
+              </FadeUp>
+
+              <FadeUp animated={animated} delay={0.3}>
                 <label
                   htmlFor="name"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -619,7 +804,7 @@ export default function CreateForm({
                 />
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.15} className="grid gap-4 sm:grid-cols-2">
+              <FadeUp animated={animated} delay={0.35} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="partnerA"
@@ -659,7 +844,7 @@ export default function CreateForm({
                 )}
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.2} className="grid gap-4 sm:grid-cols-2">
+              <FadeUp animated={animated} delay={0.4} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="date"
@@ -694,7 +879,7 @@ export default function CreateForm({
                 </div>
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.25}>
+              <FadeUp animated={animated} delay={0.45}>
                 <label
                   htmlFor="venue"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -713,7 +898,7 @@ export default function CreateForm({
                 />
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.3} className="grid gap-4 sm:grid-cols-2">
+              <FadeUp animated={animated} delay={0.5} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="city"
@@ -752,7 +937,7 @@ export default function CreateForm({
                 </div>
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.35}>
+              <FadeUp animated={animated} delay={0.55}>
                 <label
                   htmlFor="message"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -771,7 +956,7 @@ export default function CreateForm({
                 />
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.4}>
+              <FadeUp animated={animated} delay={0.6}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Fotoğraf{" "}
                   <span className="font-normal text-zinc-400">(opsiyonel)</span>
@@ -779,7 +964,7 @@ export default function CreateForm({
                 <PhotoUpload onResult={(url) => setPhoto(url ?? undefined)} />
               </FadeUp>
 
-              <FadeUp animated={animated} delay={0.45}>
+              <FadeUp animated={animated} delay={0.65}>
                 <MusicField
                   value={audio}
                   onChange={setAudio}

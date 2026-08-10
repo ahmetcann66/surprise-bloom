@@ -24,7 +24,17 @@ export type ParticleShape =
   | "cloud"
   | "rocket"
   | "aurora"
-  | "light";
+  | "light"
+  | "ring"
+  | "kiss"
+  | "party"
+  | "gift"
+  | "car"
+  | "motorcycle"
+  | "scooter"
+  | "teddy"
+  | "bride"
+  | "groom";
 
 export type MotionPattern =
   | "bloom-spiral"

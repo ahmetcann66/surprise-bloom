@@ -8,6 +8,7 @@ import CoupleReveal from "@/components/invitation/couple-reveal";
 import MusicPlayer from "@/components/invitation/music-player";
 import { useInvitationMusic } from "@/hooks/use-invitation-music";
 import { musicLabel } from "@/lib/music";
+import { isInvitationAnimation } from "@/lib/invitation/themes";
 import type { Invitation } from "@/lib/invitation/types";
 import type { InvitationTheme } from "@/lib/invitation/themes";
 import type { GreetingAudio } from "@/lib/types";
@@ -34,13 +35,21 @@ export default function InvitationPage({
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  const { details } = invitation;
+  const { details, options } = invitation;
   const monogram = details.partnerB
     ? `${details.partnerA} & ${details.partnerB}`
     : details.partnerA;
   const audio: GreetingAudio | null = invitation.audio ?? DEFAULT_AUDIO;
   const { playing, start, toggle } = useInvitationMusic(audio);
   const label = musicLabel(audio);
+  const animation = isInvitationAnimation(options?.animation)
+    ? options.animation
+    : "cicekler";
+  const envelopeAnimated = options?.envelopeAnimation !== false;
+  const textFont = options?.textFont;
+  const textSize = options?.textSize;
+  const animationSpeed = options?.animationSpeed;
+  const animationScale = options?.animationScale;
 
   const handleOpen = () => {
     setOpened(true);
@@ -55,6 +64,8 @@ export default function InvitationPage({
         monogram={monogram}
         onOpen={handleOpen}
         reducedMotion={reducedMotion}
+        animated={envelopeAnimated}
+        speed={animationSpeed}
       />
     );
   }
@@ -75,6 +86,11 @@ export default function InvitationPage({
         photo={invitation.photo}
         recipientName={invitation.name}
         reducedMotion={reducedMotion}
+        animation={animation}
+        textFont={textFont}
+        textSize={textSize}
+        animationSpeed={animationSpeed}
+        animationScale={animationScale}
       />
       {label && (
         <div className="absolute bottom-3 right-3 z-30">

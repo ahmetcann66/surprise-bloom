@@ -3,6 +3,7 @@ import type {
   CreateInvitationInput,
   Invitation,
   InvitationDetails,
+  InvitationOptions,
 } from "@/lib/invitation/types";
 import { getTheme } from "@/lib/invitation/themes";
 import { isEventType } from "@/lib/invitation/types";
@@ -12,6 +13,80 @@ import { supabase } from "@/lib/supabase";
 
 // Davetiye veri katmanı — tebrik store'uyla aynı çift modlu desen
 // (Supabase varsa PostgreSQL, yoksa bellek içi fallback).
+
+// Özelleştirmeler (palet, animasyon, zarf animasyonu) DB şemasına
+// dokunmadan `theme` sütununa JSON olarak kodlanır. Eski satırlar düz tema
+// id'si olarak okunur ve varsayılan ayarlarla döner — migration gerekmez.
+
+function serializeTheme(
+  themeId: string,
+  options?: InvitationOptions,
+): string {
+  if (!options) return themeId;
+  const cleaned: InvitationOptions = {};
+  if (options.paletteId) cleaned.paletteId = options.paletteId;
+  if (options.animation) cleaned.animation = options.animation;
+  if (typeof options.envelopeAnimation === "boolean") {
+    cleaned.envelopeAnimation = options.envelopeAnimation;
+  }
+  if (options.textFont) cleaned.textFont = options.textFont;
+  if (typeof options.textSize === "number") cleaned.textSize = options.textSize;
+  if (typeof options.animationSpeed === "number") {
+    cleaned.animationSpeed = options.animationSpeed;
+  }
+  if (typeof options.animationScale === "number") {
+    cleaned.animationScale = options.animationScale;
+  }
+  if (Object.keys(cleaned).length === 0) return themeId;
+  return JSON.stringify({ v: 1, id: themeId, ...cleaned });
+}
+
+function deserializeTheme(raw: string): {
+  themeId: string;
+  options?: InvitationOptions;
+} {
+  if (!raw.startsWith("{")) return { themeId: raw };
+  try {
+    const parsed = JSON.parse(raw) as {
+      id?: unknown;
+      paletteId?: unknown;
+      animation?: unknown;
+      envelopeAnimation?: unknown;
+      textFont?: unknown;
+      textSize?: unknown;
+      animationSpeed?: unknown;
+      animationScale?: unknown;
+    };
+    if (typeof parsed.id !== "string" || !getTheme(parsed.id)) {
+      return { themeId: raw };
+    }
+    const options: InvitationOptions = {};
+    if (typeof parsed.paletteId === "string") {
+      options.paletteId = parsed.paletteId;
+    }
+    if (typeof parsed.animation === "string") {
+      options.animation = parsed.animation;
+    }
+    if (typeof parsed.envelopeAnimation === "boolean") {
+      options.envelopeAnimation = parsed.envelopeAnimation;
+    }
+    if (typeof parsed.textFont === "string") {
+      options.textFont = parsed.textFont;
+    }
+    if (typeof parsed.textSize === "number") {
+      options.textSize = parsed.textSize;
+    }
+    if (typeof parsed.animationSpeed === "number") {
+      options.animationSpeed = parsed.animationSpeed;
+    }
+    if (typeof parsed.animationScale === "number") {
+      options.animationScale = parsed.animationScale;
+    }
+    return { themeId: parsed.id, options };
+  } catch {
+    return { themeId: raw };
+  }
+}
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 const nanoid = customAlphabet(ALPHABET, 6);
@@ -70,13 +145,15 @@ function rowToInvitation(row: InvitationRow): Invitation | undefined {
     ...(row.address ? { address: row.address } : {}),
     ...(row.message ? { message: row.message } : {}),
   };
+  const theme = deserializeTheme(row.theme);
   return {
     id: row.id,
-    themeId: row.theme,
+    themeId: theme.themeId,
     name: row.name,
     details,
     ...(parseAudio(row.audio) ? { audio: parseAudio(row.audio) } : {}),
     ...(row.photo ? { photo: row.photo } : {}),
+    ...(theme.options ? { options: theme.options } : {}),
     createdAt: row.created_at,
   };
 }
@@ -90,7 +167,7 @@ export async function createInvitation(
 
   const row = {
     id: nanoid(),
-    theme: input.themeId,
+    theme: serializeTheme(input.themeId, input.options),
     name: input.name?.trim().slice(0, 80) || null,
     event_type: input.details.eventType,
     partner_a: input.details.partnerA.trim().slice(0, 80),
@@ -147,6 +224,7 @@ export async function createInvitation(
     },
     ...(input.audio ? { audio: input.audio } : {}),
     ...(input.photo ? { photo: input.photo } : {}),
+    ...(input.options ? { options: input.options } : {}),
     createdAt: new Date().toISOString(),
   };
   fallbackStore.set(invitation.id, invitation);

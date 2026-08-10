@@ -4,6 +4,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
+import EnvelopeVisual from "@/components/invitation/envelope-visual";
 import type { InvitationTheme } from "@/lib/invitation/themes";
 
 interface EnvelopeProps {
@@ -12,6 +13,10 @@ interface EnvelopeProps {
   monogram: string;
   onOpen: () => void;
   reducedMotion: boolean;
+  /** Zarf açılış animasyonu çalınsın mı (varsayılan true). */
+  animated?: boolean;
+  /** Açılış animasyonu hız çarpanı (varsayılan 1). */
+  speed?: number;
 }
 
 export default function Envelope({
@@ -20,6 +25,8 @@ export default function Envelope({
   monogram,
   onOpen,
   reducedMotion,
+  animated = true,
+  speed = 1,
 }: EnvelopeProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const flapRef = useRef<HTMLDivElement>(null);
@@ -45,9 +52,17 @@ export default function Envelope({
     const letter = letterRef.current;
     if (!wrap || !flap || !seal || !letter) return;
 
-    if (reduced) {
+    if (reduced || !animated) {
+      // Zarf animasyonu kapalı / azaltılmış hareket: zarifçe kaybolup açılır.
       tlRef.current = gsap.timeline({ paused: true });
-      tlRef.current.to(wrap, { opacity: 0, duration: 0.3, onComplete: () => onOpenRef.current() });
+      tlRef.current.to(wrap, {
+        opacity: 0,
+        y: -14,
+        scale: 0.98,
+        duration: 0.4,
+        ease: "power2.in",
+        onComplete: () => onOpenRef.current(),
+      });
       return;
     }
 
@@ -60,6 +75,7 @@ export default function Envelope({
     });
 
     const tl = gsap.timeline({ paused: true });
+    if (speed > 0) tl.timeScale(speed);
     tlRef.current = tl;
 
     tl.set(flap, { transformOrigin: "50% 0%", rotateX: 0 }, 0);
@@ -89,7 +105,7 @@ export default function Envelope({
       tl.kill();
       startedRef.current = false;
     };
-  }, [reduced]);
+  }, [reduced, animated, speed]);
 
   function play() {
     if (startedRef.current || !tlRef.current) return;
@@ -112,76 +128,20 @@ export default function Envelope({
         <div
           ref={wrapRef}
           className="relative w-full"
-          style={{ aspectRatio: "3 / 2", transformStyle: "preserve-3d" }}
+          style={{ perspective: "1000px" }}
         >
-          {/* arka iç yüz */}
-          <div
-            className="absolute inset-0 rounded-2xl"
-            style={{ background: theme.envelope.body }}
-          />
-          {/* mektup */}
-          <div
-            ref={letterRef}
-            className="absolute left-[10%] right-[10%] top-[12%] bottom-[10%] flex flex-col items-center justify-center rounded-xl border px-4 py-3 text-center shadow-lg"
-            style={{
-              background: theme.envelope.letter,
-              borderColor: `${theme.accent}55`,
-            }}
-          >
-            <p
-              className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-              style={{ color: theme.centerColor }}
-            >
-              Davet
-            </p>
-            <p
-              className="mt-1 text-lg font-bold leading-tight"
-              style={{ color: theme.couple.suit }}
-            >
-              {monogram}
-            </p>
-            <p className="mt-1 text-xs" style={{ color: theme.couple.suit }}>
-              Birlikte kutlamak üzere
-            </p>
-          </div>
-          {/* ön cep */}
-          <div
-            className="absolute inset-0 rounded-2xl"
-            style={{
-              background: theme.envelope.pocket,
-              clipPath: "polygon(0 0, 50% 46%, 100% 0, 100% 100%, 0 100%)",
-            }}
-          />
-          {recipientName && (
-            <p
-              className="absolute inset-x-0 bottom-[7%] text-center text-sm italic"
-              style={{ color: theme.couple.suit }}
-            >
-              Sevgili {recipientName}
-            </p>
-          )}
-          {/* mühür */}
-          <div
-            ref={sealRef}
-            className="absolute left-1/2 top-[49%] flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full text-xl shadow-lg"
-            style={{ background: theme.envelope.seal }}
-          >
-            {theme.emoji}
-          </div>
-          {/* kapak */}
-          <div
-            ref={flapRef}
-            className="absolute inset-x-0 top-0 h-[52%] rounded-t-2xl"
-            style={{
-              background: theme.envelope.flap,
-              clipPath: "polygon(0 0, 100% 0, 50% 100%)",
-              transformOrigin: "50% 0%",
-              transformStyle: "preserve-3d",
-            }}
+          <EnvelopeVisual
+            theme={theme}
+            recipientName={recipientName}
+            monogram={monogram}
+            className="relative w-full"
+            flapRef={flapRef}
+            sealRef={sealRef}
+            letterRef={letterRef}
           />
         </div>
         <span className="mt-6 block text-center text-sm font-medium opacity-90">
-          Zarfı açmak için dokun
+          {animated ? "Zarfı açmak için dokun" : "Davetiyeyi görüntülemek için dokun"}
         </span>
       </button>
     </div>

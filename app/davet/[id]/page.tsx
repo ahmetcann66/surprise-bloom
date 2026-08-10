@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getInvitationById } from "@/lib/invitation/store";
-import { getTheme } from "@/lib/invitation/themes";
+import { applyPalette, getTheme } from "@/lib/invitation/themes";
 import InvitationPage from "@/components/invitation/invitation-page";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,10 @@ export default async function InvitePage({ params }: PageProps) {
   const invitation = await getInvitationById(id);
   if (!invitation) notFound();
 
-  const theme = getTheme(invitation.themeId);
-  if (!theme) notFound();
+  const baseTheme = getTheme(invitation.themeId);
+  if (!baseTheme) notFound();
+
+  const theme = applyPalette(baseTheme, invitation.options?.paletteId);
 
   return <InvitationPage invitation={invitation} theme={theme} />;
 }

@@ -43,6 +43,24 @@ export interface InvitationDetails {
   message?: string;
 }
 
+/** Kullanıcı tarafından seçilen davetiye özelleştirmeleri. */
+export interface InvitationOptions {
+  /** Tema içinden seçilen renk paleti id'si (varsayılan: tema id'si). */
+  paletteId?: string;
+  /** Açılış animasyonu id'si (varsayılan: "cicekler"). */
+  animation?: string;
+  /** Zarf açılış animasyonu kapalıysa false (varsayılan: true). */
+  envelopeAnimation?: boolean;
+  /** Monogram/davetiye yazısı font id'si (varsayılan: "zarif"). */
+  textFont?: string;
+  /** Davetiye yazısı boyut çarpanı (varsayılan: 1). */
+  textSize?: number;
+  /** Açılış animasyonu hız çarpanı (varsayılan: 1). */
+  animationSpeed?: number;
+  /** Açılış animasyonu boyut çarpanı (varsayılan: 1). */
+  animationScale?: number;
+}
+
 export interface Invitation {
   id: string;
   themeId: string;
@@ -51,6 +69,7 @@ export interface Invitation {
   details: InvitationDetails;
   audio?: GreetingAudio;
   photo?: string;
+  options?: InvitationOptions;
   createdAt: string;
 }
 
@@ -60,6 +79,7 @@ export interface CreateInvitationInput {
   details: InvitationDetails;
   audio?: GreetingAudio;
   photo?: string;
+  options?: InvitationOptions;
 }
 
 const MONTHS_TR = [

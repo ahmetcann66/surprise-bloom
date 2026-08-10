@@ -24,3 +24,7 @@ export const TEXT_FONTS: TextFontOption[] = [
 export function getTextFont(id?: string | null): string {
   return TEXT_FONTS.find((f) => f.id === id)?.family ?? "inherit";
 }
+
+export function isTextFontId(value: unknown): value is string {
+  return typeof value === "string" && TEXT_FONTS.some((f) => f.id === value);
+}

@@ -57,6 +57,67 @@ describe("invitation store fallback", () => {
     expect(fetched?.details.message).toContain("mutlu");
   });
 
+  it("özelleştirme (palet, animasyon, zarf animasyonu) yuvarlak testi", async () => {
+    withoutSupabaseEnv();
+    const created = await createInvitation({
+      themeId: "dugun-altin",
+      details: {
+        eventType: "dugun",
+        partnerA: "Merve",
+        partnerB: "Kerem",
+        date: "2026-08-15",
+        venue: "Salon",
+      },
+      options: {
+        paletteId: "gul-gumus",
+        animation: "kalpler",
+        envelopeAnimation: false,
+        textFont: "daktilo",
+        textSize: 1.35,
+        animationSpeed: 1.5,
+        animationScale: 0.8,
+      },
+    });
+
+    expect(created.themeId).toBe("dugun-altin");
+    expect(created.options).toEqual({
+      paletteId: "gul-gumus",
+      animation: "kalpler",
+      envelopeAnimation: false,
+      textFont: "daktilo",
+      textSize: 1.35,
+      animationSpeed: 1.5,
+      animationScale: 0.8,
+    });
+
+    const fetched = await getInvitationById(created.id);
+    expect(fetched?.themeId).toBe("dugun-altin");
+    expect(fetched?.options?.paletteId).toBe("gul-gumus");
+    expect(fetched?.options?.animation).toBe("kalpler");
+    expect(fetched?.options?.envelopeAnimation).toBe(false);
+    expect(fetched?.options?.textFont).toBe("daktilo");
+    expect(fetched?.options?.textSize).toBe(1.35);
+    expect(fetched?.options?.animationSpeed).toBe(1.5);
+    expect(fetched?.options?.animationScale).toBe(0.8);
+  });
+
+  it("options'suz davetiyede özelleştirme undefined kalır", async () => {
+    withoutSupabaseEnv();
+    const created = await createInvitation({
+      themeId: "nikah-bahce",
+      details: {
+        eventType: "nikah",
+        partnerA: "Ayşe",
+        partnerB: "Kaan",
+        date: "2026-09-01",
+        venue: "Bahçe",
+      },
+    });
+    expect(created.options).toBeUndefined();
+    const fetched = await getInvitationById(created.id);
+    expect(fetched?.options).toBeUndefined();
+  });
+
   it("bilinmeyen id için undefined döner", async () => {
     withoutSupabaseEnv();
     expect(await getInvitationById("yok1yok")).toBeUndefined();

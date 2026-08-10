@@ -24,6 +24,16 @@ const EMOJI_SHAPES: Partial<Record<ParticleShape, string>> = {
   rainbow: "🌈",
   cloud: "💭",
   rocket: "🚀",
+  ring: "💍",
+  kiss: "💋",
+  party: "🥳",
+  gift: "🎁",
+  car: "🚗",
+  motorcycle: "🏍️",
+  scooter: "🛵",
+  teddy: "🧸",
+  bride: "👰",
+  groom: "🤵",
 };
 
 // ---- SVG tabanlı (gradient + highlight'lı) parçacık şekilleri ----------

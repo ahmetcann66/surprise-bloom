@@ -1,10 +1,20 @@
 import { NextResponse } from "next/server";
 import { createInvitation } from "@/lib/invitation/store";
-import { getTheme } from "@/lib/invitation/themes";
+import {
+  getTheme,
+  invitationPalettes,
+  isInvitationAnimation,
+} from "@/lib/invitation/themes";
 import { isEventType } from "@/lib/invitation/types";
 import { parseGreetingAudio } from "@/lib/music";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { isTextFontId } from "@/lib/fonts";
 import type { GreetingAudio } from "@/lib/types";
+
+const clampNumber = (v: unknown, min: number, max: number) =>
+  typeof v === "number" && Number.isFinite(v)
+    ? Math.min(max, Math.max(min, v))
+    : undefined;
 
 function parseAudio(raw: unknown): GreetingAudio | undefined {
   return parseGreetingAudio(raw);
@@ -27,6 +37,13 @@ export async function POST(request: Request) {
 
   const {
     themeId,
+    paletteId,
+    animation,
+    envelopeAnimation,
+    textFont,
+    textSize,
+    animationSpeed,
+    animationScale,
     name,
     eventType,
     partnerA,
@@ -41,6 +58,13 @@ export async function POST(request: Request) {
     photo,
   } = (body ?? {}) as {
     themeId?: unknown;
+    paletteId?: unknown;
+    animation?: unknown;
+    envelopeAnimation?: unknown;
+    textFont?: unknown;
+    textSize?: unknown;
+    animationSpeed?: unknown;
+    animationScale?: unknown;
     name?: unknown;
     eventType?: unknown;
     partnerA?: unknown;
@@ -72,6 +96,72 @@ export async function POST(request: Request) {
   if (getTheme(themeId)!.eventType !== eventType) {
     return NextResponse.json(
       { error: "Etkinlik tipi ile tema eşleşmiyor." },
+      { status: 400 },
+    );
+  }
+
+  const paletteOptions = invitationPalettes(eventType);
+  if (
+    paletteId !== undefined &&
+    paletteId !== null &&
+    (typeof paletteId !== "string" ||
+      !paletteOptions.some((p) => p.id === paletteId))
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz renk paleti." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    animation !== undefined &&
+    animation !== null &&
+    !isInvitationAnimation(animation)
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz animasyon seçimi." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    envelopeAnimation !== undefined &&
+    envelopeAnimation !== null &&
+    typeof envelopeAnimation !== "boolean"
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz zarf animasyonu seçimi." },
+      { status: 400 },
+    );
+  }
+
+  if (
+    textFont !== undefined &&
+    textFont !== null &&
+    !isTextFontId(textFont)
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz yazı stili." },
+      { status: 400 },
+    );
+  }
+
+  const parsedTextSize = clampNumber(textSize, 0.5, 2.5);
+  const parsedAnimationSpeed = clampNumber(animationSpeed, 0.4, 3);
+  const parsedAnimationScale = clampNumber(animationScale, 0.4, 3);
+  if (
+    (textSize !== undefined &&
+      textSize !== null &&
+      parsedTextSize === undefined) ||
+    (animationSpeed !== undefined &&
+      animationSpeed !== null &&
+      parsedAnimationSpeed === undefined) ||
+    (animationScale !== undefined &&
+      animationScale !== null &&
+      parsedAnimationScale === undefined)
+  ) {
+    return NextResponse.json(
+      { error: "Geçersiz boyut/hız değeri." },
       { status: 400 },
     );
   }
@@ -202,6 +292,21 @@ export async function POST(request: Request) {
       },
       audio: parsedAudio,
       photo: typeof photo === "string" ? photo : undefined,
+      options: {
+        ...(typeof paletteId === "string" ? { paletteId } : {}),
+        ...(typeof animation === "string" ? { animation } : {}),
+        ...(typeof envelopeAnimation === "boolean"
+          ? { envelopeAnimation }
+          : {}),
+        ...(typeof textFont === "string" ? { textFont } : {}),
+        ...(parsedTextSize !== undefined ? { textSize: parsedTextSize } : {}),
+        ...(parsedAnimationSpeed !== undefined
+          ? { animationSpeed: parsedAnimationSpeed }
+          : {}),
+        ...(parsedAnimationScale !== undefined
+          ? { animationScale: parsedAnimationScale }
+          : {}),
+      },
     });
     return NextResponse.json({
       id: invitation.id,
