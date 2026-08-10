@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
 import { getPalette, templates } from "@/lib/templates";
 import type { EffectPlacement, GreetingAudio, TemplateId } from "@/lib/types";
 import {
@@ -77,8 +78,42 @@ function partnerLabels(et: EventType): { a: string; b?: string } {
   }
 }
 
-export default function CreateForm() {
-  const [mode, setMode] = useState<"greeting" | "invitation">("greeting");
+interface CreateFormProps {
+  initialMode?: "greeting" | "invitation";
+  hideProductSelect?: boolean;
+  animated?: boolean;
+}
+
+function FadeUp({
+  children,
+  animated,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode;
+  animated: boolean;
+  delay?: number;
+  className?: string;
+}) {
+  if (!animated) return <div className={className}>{children}</div>;
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 28 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+export default function CreateForm({
+  initialMode = "greeting",
+  hideProductSelect = false,
+  animated = false,
+}: CreateFormProps) {
+  const [mode, setMode] = useState<"greeting" | "invitation">(initialMode);
   const [templateId, setTemplateId] = useState<TemplateId>(templates[0].id);
   const [paletteId, setPaletteId] = useState<string>(templates[0].palettes[0].id);
   const [invite, setInvite] = useState<InviteState>(DEFAULT_INVITE);
@@ -219,7 +254,7 @@ export default function CreateForm() {
   const qrEmoji = mode === "invitation" ? invTheme.emoji : selectedTemplate.emoji;
 
   return (
-    <div className="mx-auto w-full max-w-xl px-6 py-12 sm:py-16">
+    <>
       <h1 className="text-center text-3xl font-bold sm:text-4xl">
         {mode === "invitation"
           ? "Animasyonlu Davetiye Oluştur"
@@ -269,11 +304,12 @@ export default function CreateForm() {
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-10 space-y-6">
-          <fieldset>
-            <legend className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-              Ürün seç
-            </legend>
-            <div className="mt-3 grid grid-cols-2 gap-3">
+          {!hideProductSelect && (
+            <fieldset>
+              <legend className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                Ürün seç
+              </legend>
+            <div className="mt-3 grid gap-2 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
               <button
                 type="button"
                 onClick={selectInvitation}
@@ -337,15 +373,16 @@ export default function CreateForm() {
                 );
               })}
             </div>
-          </fieldset>
+            </fieldset>
+          )}
 
           {mode === "greeting" ? (
             <>
-              <div>
+              <FadeUp animated={animated} delay={0.05}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Renk paleti
                 </span>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid gap-2 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
                   {selectedTemplate.palettes.map((pal) => {
                     const active = pal.id === paletteId;
                     return (
@@ -353,7 +390,7 @@ export default function CreateForm() {
                         key={pal.id}
                         type="button"
                         onClick={() => setPaletteId(pal.id)}
-                        className={`flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                        className={`flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
                           active
                             ? "border-pink-500 ring-2 ring-pink-500/30"
                             : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
@@ -373,9 +410,9 @@ export default function CreateForm() {
                     );
                   })}
                 </div>
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.1}>
                 <label
                   htmlFor="name"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -392,9 +429,9 @@ export default function CreateForm() {
                   maxLength={80}
                   className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.15}>
                 <label
                   htmlFor="message"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -411,9 +448,9 @@ export default function CreateForm() {
                   maxLength={2000}
                   className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.2}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Efekt seç{" "}
                   <span className="font-normal text-zinc-400">
@@ -431,7 +468,7 @@ export default function CreateForm() {
                         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
                           {cat.label}
                         </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
+                        <div className="mt-2 grid gap-2 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
                           {list.map((ef) => {
                             const active = layout.effects.some(
                               (e) => e.id === ef.id,
@@ -448,7 +485,7 @@ export default function CreateForm() {
                                       : [...prev.effects, { id: ef.id, scale: 1 }],
                                   }))
                                 }
-                                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                                className={`flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
                                   active
                                     ? "border-pink-500 ring-2 ring-pink-500/30"
                                     : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
@@ -464,25 +501,25 @@ export default function CreateForm() {
                     );
                   })}
                 </div>
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.25}>
                 <MusicField
                   value={audio}
                   onChange={setAudio}
                   variant="greeting"
                 />
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.3}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Fotoğraf{" "}
                   <span className="font-normal text-zinc-400">(opsiyonel)</span>
                 </span>
                 <PhotoUpload onResult={(url) => setPhoto(url ?? undefined)} />
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.35}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Video{" "}
                   <span className="font-normal text-zinc-400">
@@ -490,9 +527,10 @@ export default function CreateForm() {
                   </span>
                 </span>
                 <VideoUpload onResult={(url) => setVideo(url ?? undefined)} />
-              </div>
+              </FadeUp>
 
-              <LayoutEditor
+              <FadeUp animated={animated} delay={0.4}>
+                <LayoutEditor
                 photo={photo}
                 video={video}
                 name={name}
@@ -520,14 +558,15 @@ export default function CreateForm() {
                   }))
                 }
               />
+              </FadeUp>
             </>
           ) : (
             <>
-              <div>
+              <FadeUp animated={animated} delay={0.05}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Etkinlik tipi
                 </span>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-3 grid gap-2 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
                   {(Object.keys(EVENT_TYPE_LABELS) as EventType[]).map((et) => {
                     const active = invite.eventType === et;
                     return (
@@ -535,7 +574,7 @@ export default function CreateForm() {
                         key={et}
                         type="button"
                         onClick={() => setInviteField("eventType", et)}
-                        className={`flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                        className={`flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
                           active
                             ? "border-pink-500 ring-2 ring-pink-500/30"
                             : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
@@ -559,9 +598,9 @@ export default function CreateForm() {
                   </span>
                   Tema: {invTheme.label}
                 </p>
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.1}>
                 <label
                   htmlFor="name"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -578,9 +617,9 @@ export default function CreateForm() {
                   maxLength={80}
                   className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
-              </div>
+              </FadeUp>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <FadeUp animated={animated} delay={0.15} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="partnerA"
@@ -618,9 +657,9 @@ export default function CreateForm() {
                     />
                   </div>
                 )}
-              </div>
+              </FadeUp>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <FadeUp animated={animated} delay={0.2} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="date"
@@ -653,9 +692,9 @@ export default function CreateForm() {
                     className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                   />
                 </div>
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.25}>
                 <label
                   htmlFor="venue"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -672,9 +711,9 @@ export default function CreateForm() {
                   maxLength={160}
                   className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
-              </div>
+              </FadeUp>
 
-              <div className="grid gap-4 sm:grid-cols-2">
+              <FadeUp animated={animated} delay={0.3} className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label
                     htmlFor="city"
@@ -711,9 +750,9 @@ export default function CreateForm() {
                     className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                   />
                 </div>
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.35}>
                 <label
                   htmlFor="message"
                   className="text-sm font-medium text-zinc-600 dark:text-zinc-300"
@@ -730,46 +769,50 @@ export default function CreateForm() {
                   maxLength={2000}
                   className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 text-zinc-900 outline-none transition-colors placeholder:text-zinc-400 focus:border-pink-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
                 />
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.4}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Fotoğraf{" "}
                   <span className="font-normal text-zinc-400">(opsiyonel)</span>
                 </span>
                 <PhotoUpload onResult={(url) => setPhoto(url ?? undefined)} />
-              </div>
+              </FadeUp>
 
-              <div>
+              <FadeUp animated={animated} delay={0.45}>
                 <MusicField
                   value={audio}
                   onChange={setAudio}
                   variant="invitation"
                   description="Seçmezsen davetiyede sihirli melodi çalar."
                 />
-              </div>
+              </FadeUp>
             </>
           )}
 
           {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
-              {error}
-            </p>
+            <FadeUp animated={animated} delay={0.5}>
+              <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600 dark:bg-red-950 dark:text-red-400">
+                {error}
+              </p>
+            </FadeUp>
           )}
 
-          <button
-            type="submit"
-            disabled={creating}
-            className="w-full rounded-full bg-pink-600 px-5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {creating
-              ? "Oluşturuluyor…"
-              : mode === "invitation"
-                ? "Davetiyeyi Oluştur"
-                : "Linki Oluştur"}
-          </button>
+          <FadeUp animated={animated} delay={0.5}>
+            <button
+              type="submit"
+              disabled={creating}
+              className="w-full rounded-full bg-pink-600 px-5 py-3.5 text-base font-semibold text-white transition-colors hover:bg-pink-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {creating
+                ? "Oluşturuluyor…"
+                : mode === "invitation"
+                  ? "Davetiyeyi Oluştur"
+                  : "Linki Oluştur"}
+            </button>
+          </FadeUp>
         </form>
       )}
-    </div>
+    </>
   );
 }

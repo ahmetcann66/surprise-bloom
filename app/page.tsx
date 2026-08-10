@@ -1,9 +1,9 @@
-import CreateForm from "@/components/create-form";
+import SplitScreen from "@/components/split-screen";
 
 export default function Home() {
   return (
-    <div className="min-h-dvh bg-zinc-50 font-sans dark:bg-zinc-950">
-      <CreateForm />
-    </div>
+    <main className="min-h-dvh bg-zinc-950 font-sans">
+      <SplitScreen />
+    </main>
   );
 }

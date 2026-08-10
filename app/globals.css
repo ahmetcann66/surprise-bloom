@@ -237,3 +237,120 @@ body {
     opacity: var(--op);
   }
 }
+
+/* ---- Split-screen paneller ---- */
+
+.panel-base-invitation {
+  background-image: radial-gradient(
+    130% 130% at 20% 10%,
+    #f9a8d4 0%,
+    #c084fc 45%,
+    #7c3aed 100%
+  );
+}
+
+.panel-base-greeting {
+  background-image: radial-gradient(
+    130% 130% at 80% 15%,
+    #312e81 0%,
+    #1e1b4b 55%,
+    #0f0a2e 100%
+  );
+}
+
+.mesh-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  opacity: 0.55;
+  mix-blend-mode: screen;
+  animation: mesh-drift 16s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes mesh-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(8%, -10%, 0) scale(1.2);
+  }
+}
+
+.mesh-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    120% 90% at 50% 40%,
+    transparent 55%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
+}
+
+.split-hero-card {
+  position: relative;
+  border-radius: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(
+    145deg,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.06)
+  );
+  box-shadow:
+    0 24px 48px -16px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transition:
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.5s ease;
+}
+
+.split-hero-card::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.55),
+    transparent 40%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.split-hero-group:hover .split-hero-card {
+  transform: translateY(-10px) scale(1.03);
+  box-shadow:
+    0 40px 70px -20px rgba(0, 0, 0, 0.55),
+    0 0 60px -8px var(--hero-glow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.split-hero-glow {
+  position: absolute;
+  inset: -12px;
+  border-radius: 2.5rem;
+  filter: blur(26px);
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  background: radial-gradient(
+    70% 70% at 50% 30%,
+    var(--hero-glow),
+    transparent 70%
+  );
+}
+
+.split-hero-group:hover .split-hero-glow {
+  opacity: 1;
+}
