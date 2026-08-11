@@ -47,8 +47,10 @@ export interface InvitationDetails {
 export interface InvitationOptions {
   /** Tema içinden seçilen renk paleti id'si (varsayılan: tema id'si). */
   paletteId?: string;
-  /** Açılış animasyonu id'si (varsayılan: "cicekler"). */
+  /** Eski (tekli) açılış animasyonu id'si — `animations` yokken kullanılır. */
   animation?: string;
+  /** Seçilen açılış animasyonları (birden fazla; en fazla 4). */
+  animations?: string[];
   /** Zarf açılış animasyonu kapalıysa false (varsayılan: true). */
   envelopeAnimation?: boolean;
   /** Monogram/davetiye yazısı font id'si (varsayılan: "zarif"). */

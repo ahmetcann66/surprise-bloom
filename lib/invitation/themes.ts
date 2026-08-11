@@ -559,3 +559,25 @@ export function isInvitationAnimation(
     (INVITATION_ANIMATION_IDS as readonly string[]).includes(value)
   );
 }
+
+/** En fazla seçilebilen açılış animasyonu sayısı. */
+export const MAX_INVITATION_ANIMATIONS = 4;
+
+/**
+ * Seçilen animasyonları çözümler: geçerli olanları alır, tekilleştirir,
+ * fazlalıkları sınırlar. `animations` yoksa eski tekli `animation` kullanılır.
+ */
+export function resolveInvitationAnimations(
+  animations?: string[],
+  legacyAnimation?: string,
+): InvitationAnimationId[] {
+  const raw = Array.isArray(animations) && animations.length > 0
+    ? animations
+    : legacyAnimation
+      ? [legacyAnimation]
+      : ["cicekler"];
+  const valid = raw.filter((a): a is InvitationAnimationId =>
+    isInvitationAnimation(a),
+  );
+  return [...new Set(valid)].slice(0, MAX_INVITATION_ANIMATIONS);
+}

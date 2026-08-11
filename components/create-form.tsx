@@ -11,7 +11,6 @@ import {
 } from "@/lib/effects/presets";
 import {
   applyPalette,
-  getInvitationAnimation,
   getThemeForEvent,
   invitationPalettes,
   INVITATION_ANIMATIONS,
@@ -64,7 +63,8 @@ interface InviteState {
   address: string;
   /** Tema renk paleti ("" = tema varsayılanı). */
   paletteId: string;
-  animation: InvitationAnimationId;
+  /** Seçilen açılış animasyonları (en fazla 4). */
+  animations: InvitationAnimationId[];
   envelopeAnimation: boolean;
   textFont: string;
   textSize: number;
@@ -82,7 +82,7 @@ const DEFAULT_INVITE: InviteState = {
   city: "",
   address: "",
   paletteId: "",
-  animation: "cicekler",
+  animations: ["cicekler"],
   envelopeAnimation: true,
   textFont: "zarif",
   textSize: 1,
@@ -155,8 +155,6 @@ export default function CreateForm({
   const invTheme = getThemeForEvent(invite.eventType);
   const appliedTheme = applyPalette(invTheme, invite.paletteId || undefined);
   const invitePaletteOptions = invitationPalettes(invite.eventType);
-  const inviteAnimation =
-    getInvitationAnimation(invite.animation) ?? INVITATION_ANIMATIONS[0];
   const labels = partnerLabels(invite.eventType);
 
   function selectGreeting(id: TemplateId) {
@@ -186,7 +184,7 @@ export default function CreateForm({
           body: JSON.stringify({
             themeId: invTheme.id,
             paletteId: invite.paletteId || undefined,
-            animation: invite.animation,
+            animations: invite.animations,
             envelopeAnimation: invite.envelopeAnimation,
             textFont: invite.textFont,
             textSize: invite.textSize,
@@ -671,7 +669,11 @@ export default function CreateForm({
 
               <FadeUp animated={animated} delay={0.15}>
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                  Açılış animasyonu
+                  Açılış animasyonları{" "}
+                  <span className="font-normal text-zinc-400">
+                    (birden fazla seçebilirsin, en fazla 4 — hangi havayı
+                    kattığını önizlemede canlı izle)
+                  </span>
                 </span>
                 <div className="mt-3 space-y-4">
                   {INVITATION_ANIMATION_CATEGORIES.map((cat) => {
@@ -687,26 +689,49 @@ export default function CreateForm({
                         </p>
                         <div className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
                           {items.map((a) => {
-                            const active = invite.animation === a.id;
+                            const active = invite.animations.includes(a.id);
+                            const disabled =
+                              !active &&
+                              invite.animations.length >= 4;
                             return (
                               <button
                                 key={a.id}
                                 type="button"
-                                onClick={() => setInviteField("animation", a.id)}
-                                className={`rounded-xl border p-3 text-left transition-all ${
+                                disabled={disabled}
+                                onClick={() =>
+                                  setInvite((prev) => ({
+                                    ...prev,
+                                    animations: active
+                                      ? prev.animations.filter(
+                                          (x) => x !== a.id,
+                                        )
+                                      : [...prev.animations, a.id],
+                                  }))
+                                }
+                                className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
                                   active
                                     ? "border-pink-500 ring-2 ring-pink-500/30"
                                     : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                                }`}
+                                } ${disabled ? "opacity-40" : ""}`}
                               >
-                                <span className="block text-lg" aria-hidden>
-                                  {a.emoji}
+                                <span
+                                  aria-hidden
+                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white ${
+                                    active
+                                      ? "border-pink-500 bg-pink-500"
+                                      : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900"
+                                  }`}
+                                >
+                                  {active ? "✓" : ""}
                                 </span>
-                                <span className="mt-1 block text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                  {a.label}
-                                </span>
-                                <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                                  {a.description}
+                                <span className="min-w-0">
+                                  <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                    <span aria-hidden>{a.emoji}</span>
+                                    {a.label}
+                                  </span>
+                                  <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                                    {a.description}
+                                  </span>
                                 </span>
                               </button>
                             );
@@ -764,7 +789,10 @@ export default function CreateForm({
                   <InvitePreview
                     theme={appliedTheme}
                     eventType={invite.eventType}
-                    animation={inviteAnimation}
+                    animations={invite.animations}
+                    onAnimationsChange={(ids) =>
+                      setInviteField("animations", ids)
+                    }
                     envelopeAnimated={invite.envelopeAnimation}
                     partnerA={invite.partnerA}
                     partnerB={invite.partnerB}

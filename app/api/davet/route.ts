@@ -4,6 +4,8 @@ import {
   getTheme,
   invitationPalettes,
   isInvitationAnimation,
+  MAX_INVITATION_ANIMATIONS,
+  resolveInvitationAnimations,
 } from "@/lib/invitation/themes";
 import { isEventType } from "@/lib/invitation/types";
 import { parseGreetingAudio } from "@/lib/music";
@@ -39,6 +41,7 @@ export async function POST(request: Request) {
     themeId,
     paletteId,
     animation,
+    animations,
     envelopeAnimation,
     textFont,
     textSize,
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
     themeId?: unknown;
     paletteId?: unknown;
     animation?: unknown;
+    animations?: unknown;
     envelopeAnimation?: unknown;
     textFont?: unknown;
     textSize?: unknown;
@@ -123,6 +127,25 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  if (animations !== undefined && animations !== null) {
+    if (
+      !Array.isArray(animations) ||
+      animations.length === 0 ||
+      animations.length > MAX_INVITATION_ANIMATIONS ||
+      !animations.every(isInvitationAnimation)
+    ) {
+      return NextResponse.json(
+        { error: "Geçersiz animasyon seçimi (en fazla 4)." },
+        { status: 400 },
+      );
+    }
+  }
+
+  const resolvedAnimations = resolveInvitationAnimations(
+    animations as string[] | undefined,
+    typeof animation === "string" ? animation : undefined,
+  );
 
   if (
     envelopeAnimation !== undefined &&
@@ -294,7 +317,9 @@ export async function POST(request: Request) {
       photo: typeof photo === "string" ? photo : undefined,
       options: {
         ...(typeof paletteId === "string" ? { paletteId } : {}),
-        ...(typeof animation === "string" ? { animation } : {}),
+        ...(resolvedAnimations.length > 0
+          ? { animations: resolvedAnimations }
+          : {}),
         ...(typeof envelopeAnimation === "boolean"
           ? { envelopeAnimation }
           : {}),

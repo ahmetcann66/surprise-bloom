@@ -25,7 +25,11 @@ function serializeTheme(
   if (!options) return themeId;
   const cleaned: InvitationOptions = {};
   if (options.paletteId) cleaned.paletteId = options.paletteId;
-  if (options.animation) cleaned.animation = options.animation;
+  if (options.animations && options.animations.length > 0) {
+    cleaned.animations = [...options.animations];
+  } else if (options.animation) {
+    cleaned.animation = options.animation;
+  }
   if (typeof options.envelopeAnimation === "boolean") {
     cleaned.envelopeAnimation = options.envelopeAnimation;
   }
@@ -51,6 +55,7 @@ function deserializeTheme(raw: string): {
       id?: unknown;
       paletteId?: unknown;
       animation?: unknown;
+      animations?: unknown;
       envelopeAnimation?: unknown;
       textFont?: unknown;
       textSize?: unknown;
@@ -64,7 +69,12 @@ function deserializeTheme(raw: string): {
     if (typeof parsed.paletteId === "string") {
       options.paletteId = parsed.paletteId;
     }
-    if (typeof parsed.animation === "string") {
+    if (Array.isArray(parsed.animations)) {
+      const ids = parsed.animations.filter(
+        (a): a is string => typeof a === "string",
+      );
+      if (ids.length > 0) options.animations = ids;
+    } else if (typeof parsed.animation === "string") {
       options.animation = parsed.animation;
     }
     if (typeof parsed.envelopeAnimation === "boolean") {

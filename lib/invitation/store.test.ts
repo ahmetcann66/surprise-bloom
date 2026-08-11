@@ -70,7 +70,7 @@ describe("invitation store fallback", () => {
       },
       options: {
         paletteId: "gul-gumus",
-        animation: "kalpler",
+        animations: ["kalpler", "kuslar"],
         envelopeAnimation: false,
         textFont: "daktilo",
         textSize: 1.35,
@@ -82,7 +82,7 @@ describe("invitation store fallback", () => {
     expect(created.themeId).toBe("dugun-altin");
     expect(created.options).toEqual({
       paletteId: "gul-gumus",
-      animation: "kalpler",
+      animations: ["kalpler", "kuslar"],
       envelopeAnimation: false,
       textFont: "daktilo",
       textSize: 1.35,
@@ -93,12 +93,36 @@ describe("invitation store fallback", () => {
     const fetched = await getInvitationById(created.id);
     expect(fetched?.themeId).toBe("dugun-altin");
     expect(fetched?.options?.paletteId).toBe("gul-gumus");
-    expect(fetched?.options?.animation).toBe("kalpler");
+    expect(fetched?.options?.animations).toEqual(["kalpler", "kuslar"]);
     expect(fetched?.options?.envelopeAnimation).toBe(false);
     expect(fetched?.options?.textFont).toBe("daktilo");
     expect(fetched?.options?.textSize).toBe(1.35);
     expect(fetched?.options?.animationSpeed).toBe(1.5);
     expect(fetched?.options?.animationScale).toBe(0.8);
+  });
+
+  it("eski tekli animation alanı okunur ve animations'sız kalır", async () => {
+    withoutSupabaseEnv();
+    const created = await createInvitation({
+      themeId: "dugun-altin",
+      details: {
+        eventType: "dugun",
+        partnerA: "Merve",
+        partnerB: "Kerem",
+        date: "2026-08-15",
+        venue: "Salon",
+      },
+      options: {
+        animation: "kelebek",
+      },
+    });
+
+    expect(created.options?.animation).toBe("kelebek");
+    expect(created.options?.animations).toBeUndefined();
+
+    const fetched = await getInvitationById(created.id);
+    expect(fetched?.options?.animation).toBe("kelebek");
+    expect(fetched?.options?.animations).toBeUndefined();
   });
 
   it("options'suz davetiyede özelleştirme undefined kalır", async () => {

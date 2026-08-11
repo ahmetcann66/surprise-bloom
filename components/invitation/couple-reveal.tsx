@@ -11,6 +11,8 @@ import { getTextFont } from "@/lib/fonts";
 import { formatDate, type EventType } from "@/lib/invitation/types";
 import {
   getInvitationAnimation,
+  resolveInvitationAnimations,
+  type InvitationAnimation,
   type InvitationAnimationId,
   type InvitationTheme,
 } from "@/lib/invitation/themes";
@@ -29,8 +31,8 @@ interface CoupleRevealProps {
   photo?: string;
   recipientName?: string | null;
   reducedMotion: boolean;
-  /** Açılış animasyonu id'si (varsayılan: "cicekler"). */
-  animation?: InvitationAnimationId;
+  /** Açılış animasyonları (varsayılan: ["cicekler"]). */
+  animations?: InvitationAnimationId[];
   /** Davetiye yazısı font id'si (varsayılan: "zarif"). */
   textFont?: string;
   /** Davetiye yazısı boyut çarpanı (varsayılan: 1). */
@@ -55,7 +57,7 @@ export default function CoupleReveal({
   photo,
   recipientName,
   reducedMotion,
-  animation = "cicekler",
+  animations,
   textFont = "zarif",
   textSize = 1,
   animationSpeed = 1,
@@ -114,9 +116,19 @@ export default function CoupleReveal({
     };
   }, [reducedMotion, personas.length]);
 
-  const anim = getInvitationAnimation(animation) ?? getInvitationAnimation("cicekler")!;
-  const ambient = getEffect(anim.ambient);
-  const burstFx = getEffect(anim.burst);
+  const resolved: InvitationAnimation[] = resolveInvitationAnimations(
+    animations,
+  )
+    .map((id) => getInvitationAnimation(id))
+    .filter((a): a is InvitationAnimation => !!a);
+  const activeAnims = resolved.length > 0 ? resolved : [getInvitationAnimation("cicekler")!];
+  const ambients = activeAnims
+    .map((a) => getEffect(a.ambient))
+    .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i);
+  const bursts = activeAnims
+    .map((a) => getEffect(a.burst))
+    .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i);
+  const flowersOn = activeAnims.some((a) => a.flowers);
 
   return (
     <div
@@ -124,23 +136,26 @@ export default function CoupleReveal({
       style={{ background: theme.background, color: theme.textColor }}
     >
       {/* ambiyans */}
-      <div
-        className="pointer-events-none absolute inset-0 z-[1]"
-        style={{
-          transform: `scale(${animationScale})`,
-          transformOrigin: "50% 42%",
-        }}
-      >
-        <EffectStage
-          config={ambient}
-          active
-          reducedMotion={reducedMotion}
-          origin={{ x: 50, y: 42 }}
-          repeat="loop"
-          speed={animationSpeed}
-        />
-      </div>
-      {anim.flowers && (
+      {ambients.map((fx) => (
+        <div
+          key={fx.id}
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            transform: `scale(${animationScale})`,
+            transformOrigin: "50% 42%",
+          }}
+        >
+          <EffectStage
+            config={fx}
+            active
+            reducedMotion={reducedMotion}
+            origin={{ x: 50, y: 42 }}
+            repeat="loop"
+            speed={animationSpeed}
+          />
+        </div>
+      ))}
+      {flowersOn && (
         <>
           <VectorFormEffect
             config={getEffect("rose")}
@@ -169,13 +184,16 @@ export default function CoupleReveal({
             transformOrigin: "50% 30%",
           }}
         >
-          <EffectStage
-            config={burstFx}
-            active
-            reducedMotion={reducedMotion}
-            origin={{ x: 50, y: 30 }}
-            speed={animationSpeed}
-          />
+          {bursts.map((fx) => (
+            <EffectStage
+              key={fx.id}
+              config={fx}
+              active
+              reducedMotion={reducedMotion}
+              origin={{ x: 50, y: 30 }}
+              speed={animationSpeed}
+            />
+          ))}
         </div>
       )}
 
