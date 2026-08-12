@@ -8,7 +8,7 @@ import type {
 } from "@/lib/invitation/types";
 import { getTheme } from "@/lib/invitation/themes";
 import { isEventType } from "@/lib/invitation/types";
-import type { GreetingAudio } from "@/lib/types";
+import type { EffectRepeat, GreetingAudio } from "@/lib/types";
 import { parseGreetingAudio } from "@/lib/music";
 import { supabase } from "@/lib/supabase";
 
@@ -28,6 +28,14 @@ function readPos(value: unknown): InvitationLayoutPos | undefined {
   if (typeof o.x === "number") result.x = o.x;
   if (typeof o.y === "number") result.y = o.y;
   if (typeof o.scale === "number") result.scale = o.scale;
+  if (typeof o.speed === "number") result.speed = o.speed;
+  if (
+    typeof o.repeat === "string" &&
+    (o.repeat === "once" || o.repeat === "loop" || o.repeat === "every")
+  ) {
+    result.repeat = o.repeat as EffectRepeat;
+  }
+  if (typeof o.repeatEvery === "number") result.repeatEvery = o.repeatEvery;
   return Object.keys(result).length > 0 ? result : undefined;
 }
 

@@ -8,6 +8,7 @@
 // - Greeting render: `resolveEffectFor(id)` → EffectConfig
 // - Davetiye render: `resolveAnimations(...)` + `getAnimation(id)` → ambient/burst/flowers
 import type { EffectConfig, EffectId } from "@/lib/effects/types";
+import { isVectorFlower } from "@/lib/effects/flowers";
 import {
   EFFECTS,
   EFFECT_CATEGORIES,
@@ -69,7 +70,10 @@ function fromEffect(effect: EffectConfig): UnifiedAnimation {
     source: "effect",
     effect,
     ambient: effect.id,
-    burst: effect.id,
+    // Çiçek (vektör) efektleri önizleme/gerçek sayfada VectorFormEffect ile
+    // çizilir; açılış patlaması rolü ise kendi petal sarmalı yerine nötr bir
+    // ışıltıya çözümlenir (yoksa çiçeğin partikülleri ikinci kez saçılırdı).
+    burst: isVectorFlower(effect.id) ? "goldsparkle" : effect.id,
     flowers: false,
   };
 }

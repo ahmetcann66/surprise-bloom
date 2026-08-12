@@ -128,6 +128,33 @@ describe("invitation store fallback", () => {
     });
   });
 
+  it("animasyon başına hız/tekrar (speed/repeat) yuvarlak testi", async () => {
+    withoutSupabaseEnv();
+    const created = await createInvitation({
+      themeId: "dugun-altin",
+      details: {
+        eventType: "dugun",
+        partnerA: "Merve",
+        partnerB: "Kerem",
+        date: "2026-08-15",
+        venue: "Salon",
+      },
+      options: {
+        animations: ["kalpler", "kuslar"],
+        animationPlacements: {
+          kalpler: { speed: 1.5, repeat: "every", repeatEvery: 8 },
+          kuslar: { scale: 0.8, speed: 0.6, repeat: "once" },
+        },
+      },
+    });
+
+    const fetched = await getInvitationById(created.id);
+    expect(fetched?.options?.animationPlacements).toEqual({
+      kalpler: { speed: 1.5, repeat: "every", repeatEvery: 8 },
+      kuslar: { scale: 0.8, speed: 0.6, repeat: "once" },
+    });
+  });
+
   it("eski tekli animation alanı okunur ve animations'sız kalır", async () => {
     withoutSupabaseEnv();
     const created = await createInvitation({

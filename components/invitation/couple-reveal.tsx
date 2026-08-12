@@ -5,21 +5,17 @@ import gsap from "gsap";
 import { FigureSvg } from "@/components/invitation/figures-svg";
 import { buildFigure, figuresFor } from "@/lib/invitation/figures";
 import { getEffect } from "@/lib/effects/presets";
+import { isVectorFlower } from "@/lib/effects/flowers";
 import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
 import { getTextFont } from "@/lib/fonts";
+import { getAnimation, resolveAnimations, type UnifiedAnimation } from "@/lib/animations";
 import {
   formatDate,
   type EventType,
   type InvitationLayoutPos,
 } from "@/lib/invitation/types";
-import {
-  getInvitationAnimation,
-  resolveInvitationAnimations,
-  type InvitationAnimation,
-  type InvitationAnimationId,
-  type InvitationTheme,
-} from "@/lib/invitation/themes";
+import type { InvitationTheme } from "@/lib/invitation/themes";
 
 interface CoupleRevealProps {
   theme: InvitationTheme;
@@ -36,7 +32,7 @@ interface CoupleRevealProps {
   recipientName?: string | null;
   reducedMotion: boolean;
   /** Açılış animasyonları (varsayılan: ["cicekler"]). */
-  animations?: InvitationAnimationId[];
+  animations?: string[];
   /** Davetiye yazısı font id'si (varsayılan: "zarif"). */
   textFont?: string;
   /** Davetiye yazısı boyut çarpanı (varsayılan: 1). */
@@ -133,12 +129,13 @@ export default function CoupleReveal({
     };
   }, [reducedMotion, personas.length]);
 
-  const resolved: InvitationAnimation[] = resolveInvitationAnimations(
-    animations,
-  )
-    .map((id) => getInvitationAnimation(id))
-    .filter((a): a is InvitationAnimation => !!a);
-  const activeAnims = resolved.length > 0 ? resolved : [getInvitationAnimation("cicekler")!];
+  const resolvedAnims: UnifiedAnimation[] = resolveAnimations(animations)
+    .map((id) => getAnimation(id))
+    .filter((a): a is UnifiedAnimation => !!a);
+  const activeAnims =
+    resolvedAnims.length > 0
+      ? resolvedAnims
+      : [getAnimation("cicekler") as UnifiedAnimation];
   const bursts = activeAnims
     .map((a) => getEffect(a.burst))
     .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i);
@@ -154,12 +151,27 @@ export default function CoupleReveal({
       className="relative flex min-h-dvh w-full flex-col overflow-hidden"
       style={{ background: theme.background, color: theme.textColor }}
     >
-      {/* ambiyans (her animasyon kendi konumunda) */}
+      {/* ambiyans (her animasyon kendi konumunda); çiçekler vektör player'la çizilir */}
       {activeAnims.map((a) => {
         const fx = getEffect(a.ambient);
         const p = animationPlacements?.[a.id] ?? {};
         const origin = { x: p.x ?? DEFAULT_ANIM_POS.x, y: p.y ?? DEFAULT_ANIM_POS.y };
         const scale = animationScale * (p.scale ?? 1);
+        const speed = p.speed ?? animationSpeed;
+        if (isVectorFlower(a.id)) {
+          return (
+            <VectorFormEffect
+              key={a.id}
+              config={fx}
+              active
+              reducedMotion={reducedMotion}
+              position={origin}
+              scale={scale}
+              speed={speed}
+              repeat={p.repeat}
+            />
+          );
+        }
         return (
           <div
             key={a.id}
@@ -174,8 +186,9 @@ export default function CoupleReveal({
               active
               reducedMotion={reducedMotion}
               origin={origin}
-              repeat="loop"
-              speed={animationSpeed}
+              repeat={p.repeat ?? "loop"}
+              repeatEvery={p.repeatEvery ?? 15}
+              speed={speed}
             />
           </div>
         );

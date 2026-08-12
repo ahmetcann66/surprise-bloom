@@ -7,7 +7,7 @@ import type { Greeting, Template, Theme } from "@/lib/types";
 import GreetingAudioButton from "@/components/greeting-audio";
 import VectorFormEffect from "@/components/vector-form-effect";
 import EffectStage from "@/lib/effects/engine";
-import { getEffect } from "@/lib/effects/presets";
+import { resolveEffectFor } from "@/lib/animations";
 import { isVectorFlower } from "@/lib/effects/flowers";
 import { getTextFont } from "@/lib/fonts";
 
@@ -55,7 +55,7 @@ export default function GreetingAnimation({
       style={{ background: theme.background, color: theme.textColor }}
     >
       {placements.map((placement, index) => {
-        const cfg = getEffect(placement.id);
+        const cfg = resolveEffectFor(placement.id);
         const pos = { x: placement.x ?? 50, y: placement.y ?? 50 };
         const scale = placement.scale ?? effectScale;
         if (isVectorFlower(placement.id)) {

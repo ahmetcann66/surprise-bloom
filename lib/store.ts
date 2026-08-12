@@ -7,7 +7,7 @@ import type {
   Position,
 } from "@/lib/types";
 import { getPalette, getTemplate } from "@/lib/templates";
-import { hasEffect } from "@/lib/effects/presets";
+import { isAnimation } from "@/lib/animations";
 import { parseGreetingAudio } from "@/lib/music";
 import { supabase } from "@/lib/supabase";
 
@@ -107,7 +107,7 @@ function parseEffects(value: unknown): EffectPlacement[] | undefined {
       repeat?: unknown;
       repeatEvery?: unknown;
     };
-    if (typeof id !== "string" || !hasEffect(id)) continue;
+    if (typeof id !== "string" || !isAnimation(id)) continue;
     const parsedRepeat =
       repeat === "once" || repeat === "loop" || repeat === "every"
         ? repeat

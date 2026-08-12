@@ -8,7 +8,7 @@ import CoupleReveal from "@/components/invitation/couple-reveal";
 import MusicPlayer from "@/components/invitation/music-player";
 import { useInvitationMusic } from "@/hooks/use-invitation-music";
 import { musicLabel } from "@/lib/music";
-import { resolveInvitationAnimations } from "@/lib/invitation/themes";
+import { resolveAnimations } from "@/lib/animations";
 import type { Invitation } from "@/lib/invitation/types";
 import type { InvitationTheme } from "@/lib/invitation/themes";
 import type { GreetingAudio } from "@/lib/types";
@@ -42,10 +42,7 @@ export default function InvitationPage({
   const audio: GreetingAudio | null = invitation.audio ?? DEFAULT_AUDIO;
   const { playing, start, toggle } = useInvitationMusic(audio);
   const label = musicLabel(audio);
-  const animations = resolveInvitationAnimations(
-    options?.animations,
-    options?.animation,
-  );
+  const animations = resolveAnimations(options?.animations, options?.animation);
   const envelopeAnimated = options?.envelopeAnimation !== false;
   const textFont = options?.textFont;
   const textSize = options?.textSize;

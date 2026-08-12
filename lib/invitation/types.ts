@@ -1,4 +1,4 @@
-import type { GreetingAudio } from "@/lib/types";
+import type { EffectRepeat, GreetingAudio } from "@/lib/types";
 
 // Davetiye ürün hattı (Faz B): düğün / nikah / sünnet / kutlama.
 // Tebrik (greeting) modelinden bağımsız, kendi alanlarıyla saklanır.
@@ -51,6 +51,12 @@ export interface InvitationLayoutPos {
   y?: number;
   /** Boyut çarpanı (varsayılan 1). */
   scale?: number;
+  /** Sadece animasyon yerleşimlerinde: hız çarpanı (varsayılan 1). */
+  speed?: number;
+  /** Sadece animasyon yerleşimlerinde: tekrar modu (undefined = davetiye varsayılanı "loop"). */
+  repeat?: EffectRepeat;
+  /** repeat === "every" iken tekrar aralığı (sn, varsayılan 15). */
+  repeatEvery?: number;
 }
 
 /** Kullanıcı tarafından seçilen davetiye özelleştirmeleri. */

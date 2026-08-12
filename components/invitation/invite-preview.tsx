@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -9,29 +8,30 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import gsap from "gsap";
 import EnvelopeVisual from "@/components/invitation/envelope-visual";
 import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
+import EffectSettings, {
+  type EffectSettingsItem,
+} from "@/components/effect-settings";
 import { getEffect } from "@/lib/effects/presets";
+import { isVectorFlower } from "@/lib/effects/flowers";
+import { getAnimation, type UnifiedAnimation } from "@/lib/animations";
+import { useEnvelopeAnimation } from "@/hooks/use-envelope-animation";
 import {
   EVENT_TYPE_EMOJIS,
   type EventType,
   type InvitationLayoutPos,
 } from "@/lib/invitation/types";
 import type { InvitationTheme } from "@/lib/invitation/themes";
-import {
-  getInvitationAnimation,
-  type InvitationAnimationId,
-} from "@/lib/invitation/themes";
 import { TEXT_FONTS, getTextFont } from "@/lib/fonts";
 
 interface InvitePreviewProps {
   theme: InvitationTheme;
   eventType: EventType;
   /** Seçilen açılış animasyonları (en fazla 4). */
-  animations: InvitationAnimationId[];
-  onAnimationsChange: (ids: InvitationAnimationId[]) => void;
+  animations: string[];
+  onAnimationsChange: (ids: string[]) => void;
   envelopeAnimated: boolean;
   partnerA: string;
   partnerB?: string;
@@ -64,8 +64,9 @@ const clampPct = (v: number) => Math.min(100, Math.max(0, v));
 
 // Davetiye oluşturma formundaki canlı önizleme. İki panel:
 // 1) Zarf önizlemesi — zarf her zaman görünür; "Zarfı aç" ile açılışı izlenir.
-// 2) Davetiye sayfası — animasyonlar, yazı ve fotoğraf sürüklenip ölçeklenir;
-//    seçimler gerçek davetiyeye aynen yansır.
+// 2) Davetiye sayfası — tam akış: kapalı zarf → açılır → davetiye çıkar → seçili
+//    tüm efektler oynar. Yazı, fotoğraf ve animasyon pinleri sürüklenip
+//    ölçeklenebilir; seçimler gerçek davetiyeye aynen yansır.
 export default function InvitePreview({
   theme,
   eventType,
@@ -99,88 +100,81 @@ export default function InvitePreview({
     .filter(Boolean)
     .join(" & ") || placeholder;
   const [burstRun, setBurstRun] = useState(0);
+  const [revealed, setRevealed] = useState(false);
 
   const stageRef = useRef<HTMLDivElement>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const flapRef = useRef<HTMLDivElement>(null);
-  const sealRef = useRef<HTMLDivElement>(null);
-  const letterRef = useRef<HTMLDivElement>(null);
-  const openTlRef = useRef<gsap.core.Timeline | null>(null);
 
   const selected = animations
-    .map((id) => getInvitationAnimation(id))
-    .filter((a): a is NonNullable<typeof a> => !!a);
+    .map((id) => getAnimation(id))
+    .filter((a): a is UnifiedAnimation => !!a);
   const bursts = selected
     .map((a) => getEffect(a.burst))
     .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i);
   const flowersOn = selected.some((a) => a.flowers);
 
-  useEffect(() => {
-    return () => {
-      openTlRef.current?.kill();
-    };
-  }, []);
+  // Üstteki küçük zarf paneli — açılınca tekrar kapanır (tekrar izlenebilir).
+  const {
+    wrapRef: topWrapRef,
+    flapRef: topFlapRef,
+    sealRef: topSealRef,
+    letterRef: topLetterRef,
+    play: topPlay,
+    reset: topReset,
+  } = useEnvelopeAnimation({
+    enabled: envelopeAnimated,
+    speed: animationSpeed,
+  });
 
-  function resetEnvelope() {
-    openTlRef.current?.kill();
-    const flap = flapRef.current;
-    const seal = sealRef.current;
-    const letter = letterRef.current;
-    const wrap = wrapRef.current;
-    if (!flap || !seal || !letter || !wrap) return;
-    gsap.set(flap, { transformOrigin: "50% 0%", rotateX: 0 });
-    gsap.set(letter, { yPercent: 130, opacity: 0, scale: 0.92 });
-    gsap.set(seal, { scale: 1, opacity: 1 });
-    gsap.set(wrap, { opacity: 1, y: 0 });
+  // Alttaki geniş davetiye paneli — tam akış: kapalı zarf → açıl → davetiye → efektler.
+  const {
+    wrapRef: wideWrapRef,
+    flapRef: wideFlapRef,
+    sealRef: wideSealRef,
+    letterRef: wideLetterRef,
+    play: widePlay,
+    reset: wideReset,
+  } = useEnvelopeAnimation({
+    enabled: envelopeAnimated,
+    speed: animationSpeed,
+    keepHidden: true,
+    onOpen: () => {
+      setRevealed(true);
+      setBurstRun((r) => r + 1);
+    },
+  });
+
+  function restartPreview() {
+    setRevealed(false);
+    wideReset();
   }
 
-  function playOpen() {
-    if (!envelopeAnimated) {
-      resetEnvelope();
-      return;
-    }
-    const flap = flapRef.current;
-    const seal = sealRef.current;
-    const letter = letterRef.current;
-    const wrap = wrapRef.current;
-    if (!flap || !seal || !letter || !wrap) return;
-    openTlRef.current?.kill();
-    resetEnvelope();
-
-    const tl = gsap.timeline();
-    if (animationSpeed > 0) tl.timeScale(animationSpeed);
-    tl.to(
-      seal,
-      { scale: 0.4, opacity: 0, duration: 0.22, ease: "power2.in" },
-      0.08,
-    );
-    tl.to(flap, { rotateX: -180, duration: 0.62, ease: "power2.inOut" }, 0);
-    tl.to(
-      letter,
-      { yPercent: 0, opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.4)" },
-      0.32,
-    );
-    tl.to(letter, { yPercent: -45, duration: 0.55, ease: "power2.out" }, ">0.12");
-    tl.to(
-      wrap,
-      { opacity: 0, y: -16, duration: 0.45, ease: "power2.in" },
-      ">0.2",
-    );
-    // zarf yeniden kapanır, önizlemede görünür kalır
-    tl.set(wrap, { opacity: 1, y: 0 }, ">0.15");
-    tl.set(flap, { rotateX: 0 }, ">");
-    tl.set(seal, { opacity: 1, scale: 1 }, ">");
-    tl.set(letter, { yPercent: 130, opacity: 0, scale: 0.92 }, ">");
-    openTlRef.current = tl;
-  }
-
-  function toggle(id: InvitationAnimationId) {
+  function toggle(id: string) {
     const active = animations.includes(id);
     if (active) {
       onAnimationsChange(animations.filter((x) => x !== id));
     } else if (animations.length < 4) {
       onAnimationsChange([...animations, id]);
     }
+  }
+
+  const effectSettingsItems: EffectSettingsItem[] = selected.map((a) => {
+    const p = animationPlacements[a.id] ?? {};
+    return {
+      id: a.id,
+      label: a.label,
+      emoji: a.emoji,
+      scale: p.scale ?? 1,
+      speed: p.speed ?? animationSpeed,
+      repeat: p.repeat,
+      repeatEvery: p.repeatEvery,
+    };
+  });
+
+  function updateAnimationSettings(
+    id: string,
+    patch: Partial<InvitationLayoutPos>,
+  ) {
+    onAnimationPosChange(id, { ...(animationPlacements[id] ?? {}), ...patch });
   }
 
   const tx = textPos.x ?? DEFAULT_TEXT_POS.x;
@@ -205,7 +199,7 @@ export default function InvitePreview({
         </p>
         <div className="envelope-float relative mt-4 w-[min(74%,220px)]">
           <div
-            ref={wrapRef}
+            ref={topWrapRef}
             className="relative w-full"
             style={{ perspective: "1000px" }}
           >
@@ -214,23 +208,23 @@ export default function InvitePreview({
               recipientName={recipientName?.trim() || undefined}
               monogram={monogram}
               className="relative w-full drop-shadow-[0_14px_28px_rgba(0,0,0,0.4)]"
-              flapRef={flapRef}
-              sealRef={sealRef}
-              letterRef={letterRef}
+              flapRef={topFlapRef}
+              sealRef={topSealRef}
+              letterRef={topLetterRef}
             />
           </div>
         </div>
         <div className="mt-4 flex items-center gap-2">
           <button
             type="button"
-            onClick={playOpen}
+            onClick={topPlay}
             className="rounded-full border border-pink-500 bg-pink-50 px-3 py-1.5 text-xs font-medium text-pink-700 transition-colors hover:bg-pink-100 dark:bg-pink-500/10 dark:text-pink-200 dark:hover:bg-pink-500/20"
           >
             ▶ Zarfı aç
           </button>
           <button
             type="button"
-            onClick={resetEnvelope}
+            onClick={topReset}
             className="rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur transition-colors hover:bg-white/20"
           >
             ↺ Sıfırla
@@ -246,189 +240,252 @@ export default function InvitePreview({
         </p>
       </div>
 
-      {/* davetiye sayfası önizlemesi (her zaman etkileşimli) */}
+      {/* davetiye sayfası önizlemesi — kapalı zarftan başlayan tam akış */}
       <div
         ref={stageRef}
         className="relative aspect-[16/10] w-full overflow-hidden"
         style={{ background: theme.background }}
       >
-        {/* animasyonlar — pin konumunu takip eder */}
-        {selected.map((a) => {
-          const p = animationPlacements[a.id] ?? {};
-          const ax = p.x ?? DEFAULT_ANIM_POS.x;
-          const ay = p.y ?? DEFAULT_ANIM_POS.y;
-          const scale = animationScale * (p.scale ?? 1);
-          return (
-            <div
-              key={a.id}
-              className="pointer-events-none absolute inset-0"
-              style={{
-                transform: `scale(${scale})`,
-                transformOrigin: `${ax}% ${ay}%`,
-              }}
-            >
-              <EffectStage
-                key={`${a.id}-${Math.round(ax)}-${Math.round(ay)}`}
-                config={getEffect(a.ambient)}
-                active
-                reducedMotion={false}
-                origin={{ x: ax, y: ay }}
-                repeat="loop"
-                speed={animationSpeed}
-              />
-            </div>
-          );
-        })}
-        {flowersOn && (
-          <>
-            <VectorFormEffect
-              config={getEffect("rose")}
-              active
-              reducedMotion={false}
-              position={{ x: 20, y: 44 }}
-              scale={1.3 * animationScale}
-              speed={animationSpeed}
-              repeat="loop"
-            />
-            <VectorFormEffect
-              config={getEffect("peony")}
-              active
-              reducedMotion={false}
-              position={{ x: 80, y: 44 }}
-              scale={1.3 * animationScale}
-              speed={animationSpeed}
-              repeat="loop"
-            />
-          </>
-        )}
-        {burstRun > 0 &&
-          bursts.map((fx) => (
-            <div
-              key={`${burstRun}-${fx.id}`}
-              className="pointer-events-none absolute inset-0"
-              style={{
-                transform: `scale(${animationScale})`,
-                transformOrigin: "50% 30%",
-              }}
-            >
-              <EffectStage
-                config={fx}
-                active
-                reducedMotion={false}
-                origin={{ x: 50, y: 30 }}
-                speed={animationSpeed}
-              />
-            </div>
-          ))}
-
-        {photo && (
-          <DraggableItem
-            stageRef={stageRef}
-            x={px}
-            y={py}
-            onChange={(p) => onPhotoPosChange({ ...photoPos, ...p })}
-            className="absolute z-20 rounded-2xl border-2 p-1.5"
-            style={{
-              left: `${px}%`,
-              top: `${py}%`,
-              transform: "translate(-50%, -50%)",
-              borderColor: `${theme.accent}99`,
-              background: `${theme.accent}22`,
-              boxShadow: "0 12px 28px rgba(0,0,0,0.35)",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photo}
-              alt={`${monogram} fotoğrafı`}
-              className="pointer-events-none rounded-xl object-cover"
-              style={{
-                width: `${128 * photoScale}px`,
-                maxWidth: "40%",
-                maxHeight: "70%",
-              }}
-            />
-          </DraggableItem>
-        )}
-
-        <DraggableItem
-          stageRef={stageRef}
-          x={tx}
-          y={ty}
-          onChange={(p) => onTextPosChange({ ...textPos, ...p })}
-          className="absolute z-10 w-[80%] max-w-sm text-center"
-          style={{
-            left: `${tx}%`,
-            top: `${ty}%`,
-            transform: "translate(-50%, -50%)",
-          }}
-        >
-          <p
-            className="text-[10px] font-semibold uppercase tracking-[0.28em]"
-            style={{ color: theme.accent }}
-          >
-            {recipientName?.trim()
-              ? `Sevgili ${recipientName.trim()}`
-              : "Davetlisin"}
-          </p>
-          <h1
-            className="mt-1 font-bold"
-            style={{
-              fontFamily,
-              fontSize: `clamp(${(1.4 * textSize).toFixed(2)}rem, ${
-                4 * textSize
-              }vw, ${(1.9 * textSize).toFixed(2)}rem)`,
-            }}
-          >
-            {monogram}
-          </h1>
-          <div
-            className="mx-auto mt-2 flex max-w-sm items-center justify-center gap-2 text-[11px] opacity-90"
-            style={{ fontFamily }}
-          >
-            <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1">
-              {EVENT_TYPE_EMOJIS[eventType]} {theme.label}
-            </span>
-          </div>
-        </DraggableItem>
-
-        {/* animasyon odakları (sürüklenebilir pinler) */}
-        {selected.map((a) => {
-          const p = animationPlacements[a.id] ?? {};
-          const ax = p.x ?? DEFAULT_ANIM_POS.x;
-          const ay = p.y ?? DEFAULT_ANIM_POS.y;
-          return (
-            <DraggableItem
-              key={a.id}
-              stageRef={stageRef}
-              x={ax}
-              y={ay}
-              onChange={(np) => onAnimationPosChange(a.id, { ...p, ...np })}
-              className="absolute z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-black/40 text-xs backdrop-blur-sm"
-              style={{
-                left: `${ax}%`,
-                top: `${ay}%`,
-                transform: "translate(-50%, -50%)",
-              }}
-            >
-              <span aria-hidden>{a.emoji}</span>
-            </DraggableItem>
-          );
-        })}
-
         <p
-          className="pointer-events-none absolute left-3 top-2 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80"
+          className="pointer-events-none absolute left-3 top-2 z-40 text-[10px] font-semibold uppercase tracking-[0.2em] opacity-80"
           style={{ color: theme.textColor }}
         >
           Davetiye önizlemesi
         </p>
-        <button
-          type="button"
-          onClick={() => setBurstRun((r) => r + 1)}
-          className="absolute bottom-2 right-2 rounded-full border border-white/30 bg-black/45 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
-        >
-          ▶ Patlamayı izle
-        </button>
+
+        {!revealed ? (
+          /* 1) kapalı zarf — akışın başlangıcı */
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
+            <div
+              ref={wideWrapRef}
+              className="relative w-[min(46%,230px)]"
+              style={{ perspective: "1000px" }}
+            >
+              <EnvelopeVisual
+                theme={theme}
+                recipientName={recipientName?.trim() || undefined}
+                monogram={monogram}
+                className="relative w-full drop-shadow-[0_14px_28px_rgba(0,0,0,0.4)]"
+                flapRef={wideFlapRef}
+                sealRef={wideSealRef}
+                letterRef={wideLetterRef}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={widePlay}
+              className="mt-6 rounded-full border border-pink-500 bg-pink-50 px-5 py-2 text-sm font-medium text-pink-700 transition-colors hover:bg-pink-100 dark:bg-pink-500/10 dark:text-pink-200 dark:hover:bg-pink-500/20"
+            >
+              ▶ Davetiyeyi izle
+            </button>
+            <p
+              className="mt-3 max-w-sm text-center text-xs opacity-70"
+              style={{ color: theme.textColor }}
+            >
+              {envelopeAnimated
+                ? "Kapalı zarftan başlar — zarf açılır, davetiye çıkar, seçili tüm efektler patlar."
+                : "Zarf animasyonu kapalı — butona basınca doğrudan davetiyeye geçer."}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* 2) açılış sonrası: davetiye + tüm seçili efektler */}
+            {/* animasyonlar — pin konumunu takip eder; çiçekler vektör player'la çizilir */}
+            {selected.map((a) => {
+              const p = animationPlacements[a.id] ?? {};
+              const ax = p.x ?? DEFAULT_ANIM_POS.x;
+              const ay = p.y ?? DEFAULT_ANIM_POS.y;
+              const scale = animationScale * (p.scale ?? 1);
+              const speed = p.speed ?? animationSpeed;
+              if (isVectorFlower(a.id)) {
+                return (
+                  <VectorFormEffect
+                    key={`${a.id}-${Math.round(ax)}-${Math.round(ay)}`}
+                    config={getEffect(a.ambient)}
+                    active
+                    reducedMotion={false}
+                    position={{ x: ax, y: ay }}
+                    scale={scale}
+                    speed={speed}
+                    repeat={p.repeat}
+                  />
+                );
+              }
+              return (
+                <div
+                  key={a.id}
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    transform: `scale(${scale})`,
+                    transformOrigin: `${ax}% ${ay}%`,
+                  }}
+                >
+                  <EffectStage
+                    key={`${a.id}-${Math.round(ax)}-${Math.round(ay)}`}
+                    config={getEffect(a.ambient)}
+                    active
+                    reducedMotion={false}
+                    origin={{ x: ax, y: ay }}
+                    repeat={p.repeat ?? "loop"}
+                    repeatEvery={p.repeatEvery ?? 15}
+                    speed={speed}
+                  />
+                </div>
+              );
+            })}
+            {flowersOn && (
+              <>
+                <VectorFormEffect
+                  config={getEffect("rose")}
+                  active
+                  reducedMotion={false}
+                  position={{ x: 20, y: 44 }}
+                  scale={1.3 * animationScale}
+                  speed={animationSpeed}
+                  repeat="loop"
+                />
+                <VectorFormEffect
+                  config={getEffect("peony")}
+                  active
+                  reducedMotion={false}
+                  position={{ x: 80, y: 44 }}
+                  scale={1.3 * animationScale}
+                  speed={animationSpeed}
+                  repeat="loop"
+                />
+              </>
+            )}
+            {burstRun > 0 &&
+              bursts.map((fx) => (
+                <div
+                  key={`${burstRun}-${fx.id}`}
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    transform: `scale(${animationScale})`,
+                    transformOrigin: "50% 30%",
+                  }}
+                >
+                  <EffectStage
+                    config={fx}
+                    active
+                    reducedMotion={false}
+                    origin={{ x: 50, y: 30 }}
+                    speed={animationSpeed}
+                  />
+                </div>
+              ))}
+
+            {photo && (
+              <DraggableItem
+                stageRef={stageRef}
+                x={px}
+                y={py}
+                onChange={(p) => onPhotoPosChange({ ...photoPos, ...p })}
+                className="absolute z-20 rounded-2xl border-2 p-1.5"
+                style={{
+                  left: `${px}%`,
+                  top: `${py}%`,
+                  transform: "translate(-50%, -50%)",
+                  borderColor: `${theme.accent}99`,
+                  background: `${theme.accent}22`,
+                  boxShadow: "0 12px 28px rgba(0,0,0,0.35)",
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photo}
+                  alt={`${monogram} fotoğrafı`}
+                  className="pointer-events-none rounded-xl object-cover"
+                  style={{
+                    width: `${128 * photoScale}px`,
+                    maxWidth: "40%",
+                    maxHeight: "70%",
+                  }}
+                />
+              </DraggableItem>
+            )}
+
+            <DraggableItem
+              stageRef={stageRef}
+              x={tx}
+              y={ty}
+              onChange={(p) => onTextPosChange({ ...textPos, ...p })}
+              className="absolute z-10 w-[80%] max-w-sm text-center"
+              style={{
+                left: `${tx}%`,
+                top: `${ty}%`,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <p
+                className="text-[10px] font-semibold uppercase tracking-[0.28em]"
+                style={{ color: theme.accent }}
+              >
+                {recipientName?.trim()
+                  ? `Sevgili ${recipientName.trim()}`
+                  : "Davetlisin"}
+              </p>
+              <h1
+                className="mt-1 font-bold"
+                style={{
+                  fontFamily,
+                  fontSize: `clamp(${(1.4 * textSize).toFixed(2)}rem, ${
+                    4 * textSize
+                  }vw, ${(1.9 * textSize).toFixed(2)}rem)`,
+                }}
+              >
+                {monogram}
+              </h1>
+              <div
+                className="mx-auto mt-2 flex max-w-sm items-center justify-center gap-2 text-[11px] opacity-90"
+                style={{ fontFamily }}
+              >
+                <span className="rounded-full border border-white/25 bg-white/10 px-2.5 py-1">
+                  {EVENT_TYPE_EMOJIS[eventType]} {theme.label}
+                </span>
+              </div>
+            </DraggableItem>
+
+            {/* animasyon odakları (sürüklenebilir pinler) */}
+            {selected.map((a) => {
+              const p = animationPlacements[a.id] ?? {};
+              const ax = p.x ?? DEFAULT_ANIM_POS.x;
+              const ay = p.y ?? DEFAULT_ANIM_POS.y;
+              return (
+                <DraggableItem
+                  key={a.id}
+                  stageRef={stageRef}
+                  x={ax}
+                  y={ay}
+                  onChange={(np) => onAnimationPosChange(a.id, { ...p, ...np })}
+                  className="absolute z-30 flex h-6 w-6 items-center justify-center rounded-full border border-white/60 bg-black/40 text-xs backdrop-blur-sm"
+                  style={{
+                    left: `${ax}%`,
+                    top: `${ay}%`,
+                    transform: "translate(-50%, -50%)",
+                  }}
+                >
+                  <span aria-hidden>{a.emoji}</span>
+                </DraggableItem>
+              );
+            })}
+
+            <button
+              type="button"
+              onClick={() => setBurstRun((r) => r + 1)}
+              className="absolute bottom-2 right-24 rounded-full border border-white/30 bg-black/45 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
+            >
+              ↻ Tekrar patlat
+            </button>
+            <button
+              type="button"
+              onClick={restartPreview}
+              className="absolute bottom-2 right-2 rounded-full border border-white/30 bg-black/45 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
+            >
+              ↺ Baştan
+            </button>
+          </>
+        )}
       </div>
 
       {/* animasyon seçimi */}
@@ -528,6 +585,28 @@ export default function InvitePreview({
           max={3}
           onChange={onAnimationScaleChange}
         />
+        {effectSettingsItems.length > 0 && (
+          <EffectSettings
+            items={effectSettingsItems}
+            onScaleChange={(id, v) =>
+              updateAnimationSettings(id, { scale: v })
+            }
+            onSpeedChange={(id, v) =>
+              updateAnimationSettings(id, { speed: v })
+            }
+            onRepeatChange={(id, repeat) =>
+              updateAnimationSettings(
+                id,
+                repeat === undefined
+                  ? { repeat: undefined, repeatEvery: undefined }
+                  : { repeat },
+              )
+            }
+            onRepeatEveryChange={(id, v) =>
+              updateAnimationSettings(id, { repeatEvery: v })
+            }
+          />
+        )}
       </div>
     </div>
   );

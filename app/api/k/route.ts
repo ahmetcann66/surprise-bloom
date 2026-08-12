@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createMessage } from "@/lib/store";
-import { hasEffect } from "@/lib/effects/presets";
+import { isAnimation } from "@/lib/animations";
 import { getTemplate } from "@/lib/templates";
 import { TEXT_FONTS } from "@/lib/fonts";
 import { parseGreetingAudio } from "@/lib/music";
@@ -46,7 +46,7 @@ function parseEffects(raw: unknown): EffectPlacement[] | undefined {
       repeat?: unknown;
       repeatEvery?: unknown;
     };
-    if (typeof id !== "string" || !hasEffect(id)) continue;
+    if (typeof id !== "string" || !isAnimation(id)) continue;
     const parsedRepeat =
       repeat === "once" || repeat === "loop" || repeat === "every"
         ? repeat
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (effect !== undefined && effect !== null && !hasEffect(effect)) {
+  if (effect !== undefined && effect !== null && !isAnimation(effect)) {
     return NextResponse.json(
       { error: "Geçersiz efekt seçimi." },
       { status: 400 },

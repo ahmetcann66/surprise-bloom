@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import { createInvitation } from "@/lib/invitation/store";
-import {
-  getTheme,
-  invitationPalettes,
-  isInvitationAnimation,
-  MAX_INVITATION_ANIMATIONS,
-  resolveInvitationAnimations,
-} from "@/lib/invitation/themes";
+import { getTheme, invitationPalettes } from "@/lib/invitation/themes";
+import { isAnimation, MAX_ANIMATIONS, resolveAnimations } from "@/lib/animations";
 import { isEventType } from "@/lib/invitation/types";
 import { parseGreetingAudio } from "@/lib/music";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { isTextFontId } from "@/lib/fonts";
-import type { GreetingAudio } from "@/lib/types";
+import type { EffectRepeat, GreetingAudio } from "@/lib/types";
 import type { InvitationLayoutPos } from "@/lib/invitation/types";
 
 const clampNumber = (v: unknown, min: number, max: number) =>
@@ -28,10 +23,20 @@ function parseLayoutPos(
   const x = clampNumber(o.x, 0, 100);
   const y = clampNumber(o.y, 0, 100);
   const scale = clampNumber(o.scale, 0.4, 3);
+  const speed = clampNumber(o.speed, 0.4, 3);
+  const repeat =
+    typeof o.repeat === "string" &&
+    (o.repeat === "once" || o.repeat === "loop" || o.repeat === "every")
+      ? (o.repeat as EffectRepeat)
+      : undefined;
+  const repeatEvery = clampNumber(o.repeatEvery, 3, 120);
   const result: InvitationLayoutPos = {};
   if (x !== undefined) result.x = x;
   if (y !== undefined) result.y = y;
   if (scale !== undefined) result.scale = scale;
+  if (speed !== undefined) result.speed = speed;
+  if (repeat !== undefined) result.repeat = repeat;
+  if (repeatEvery !== undefined) result.repeatEvery = repeatEvery;
   return Object.keys(result).length > 0 ? result : undefined;
 }
 
@@ -143,7 +148,7 @@ export async function POST(request: Request) {
   if (
     animation !== undefined &&
     animation !== null &&
-    !isInvitationAnimation(animation)
+    !isAnimation(animation)
   ) {
     return NextResponse.json(
       { error: "Geçersiz animasyon seçimi." },
@@ -155,8 +160,8 @@ export async function POST(request: Request) {
     if (
       !Array.isArray(animations) ||
       animations.length === 0 ||
-      animations.length > MAX_INVITATION_ANIMATIONS ||
-      !animations.every(isInvitationAnimation)
+      animations.length > MAX_ANIMATIONS ||
+      !animations.every(isAnimation)
     ) {
       return NextResponse.json(
         { error: "Geçersiz animasyon seçimi (en fazla 4)." },
@@ -165,7 +170,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const resolvedAnimations = resolveInvitationAnimations(
+  const resolvedAnimations = resolveAnimations(
     animations as string[] | undefined,
     typeof animation === "string" ? animation : undefined,
   );

@@ -6,7 +6,8 @@ import { useRef, useState } from "react";
 import type { EffectPlacement, Theme } from "@/lib/types";
 import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
-import { getEffect } from "@/lib/effects/presets";
+import EffectSettings from "@/components/effect-settings";
+import { resolveEffectFor, getAnimation } from "@/lib/animations";
 import { isVectorFlower } from "@/lib/effects/flowers";
 import { TEXT_FONTS, getTextFont } from "@/lib/fonts";
 
@@ -216,6 +217,15 @@ export default function LayoutEditor({
     dragRef.current = null;
   }
 
+  function applyEffectPatch(id: string, patch: Partial<EffectPlacement>) {
+    onChange(
+      photoPos,
+      textPos,
+      videoScale,
+      effects.map((ep) => (ep.id === id ? { ...ep, ...patch } : ep)),
+    );
+  }
+
   const deviceFrame =
     device === "phone"
       ? "aspect-[9/16] max-h-[60vh]"
@@ -265,7 +275,7 @@ export default function LayoutEditor({
         style={{ background: theme.background, color: theme.textColor, touchAction: "none" }}
       >
         {effects.map((ep, index) => {
-          const cfg = getEffect(ep.id);
+          const cfg = resolveEffectFor(ep.id);
           const pos = { x: ep.x ?? 50, y: ep.y ?? 50 };
           const scale = ep.scale ?? 1;
           if (isVectorFlower(ep.id)) {
@@ -306,7 +316,7 @@ export default function LayoutEditor({
         })}
 
         {effects.map((ep, index) => {
-          const cfg = getEffect(ep.id);
+          const cfg = resolveEffectFor(ep.id);
           return (
             <span
               key={`marker-${index}`}
@@ -337,7 +347,7 @@ export default function LayoutEditor({
               boxShadow: `0 0 2rem ${theme.accent}66`,
             }}
           >
-            <span aria-hidden>{effects[0]?.id ? getEffect(effects[0].id).emoji : "🎁"}</span>
+            <span aria-hidden>{effects[0]?.id ? getAnimation(effects[0].id)?.emoji ?? "🎁" : "🎁"}</span>
           </button>
         )}
 
@@ -487,113 +497,33 @@ export default function LayoutEditor({
           />
         </div>
         {effects.length > 0 && (
-          <div className="border-t border-zinc-200 pt-3 dark:border-zinc-800">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
-              Efekt boyutları
-            </p>
-            <div className="space-y-3">
-              {effects.map((ep, index) => {
-                const cfg = getEffect(ep.id);
-                const val = ep.scale ?? 1;
-                const patch = (p: Partial<EffectPlacement>) =>
-                  onChange(
-                    photoPos,
-                    textPos,
-                    videoScale,
-                    effects.map((x, i) => (i === index ? { ...x, ...p } : x)),
-                  );
-                return (
-                  <div key={ep.id}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-300">
-                        {cfg.emoji} {cfg.label}
-                      </span>
-                      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                        %{Math.round(val * 100)}
-                      </span>
-                    </div>
-                    <input
-                      id={`effect-scale-${ep.id}`}
-                      type="range"
-                      min={0.4}
-                      max={3}
-                      step={0.05}
-                      value={val}
-                      onChange={(e) =>
-                        patch({ scale: Number.parseFloat(e.target.value) })
-                      }
-                      className="mt-2 w-full accent-pink-500"
-                    />
-                    <div className="mt-1.5 flex items-center justify-between">
-                      <label
-                        htmlFor={`effect-speed-${ep.id}`}
-                        className="text-[11px] text-zinc-500 dark:text-zinc-400"
-                      >
-                        Hız
-                      </label>
-                      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                        ×{(ep.speed ?? animationSpeed).toFixed(2)}
-                      </span>
-                    </div>
-                    <input
-                      id={`effect-speed-${ep.id}`}
-                      type="range"
-                      min={0.4}
-                      max={3}
-                      step={0.05}
-                      value={ep.speed ?? animationSpeed}
-                      onChange={(e) =>
-                        patch({ speed: Number.parseFloat(e.target.value) })
-                      }
-                      className="mt-1 w-full accent-pink-500"
-                    />
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <select
-                        aria-label={`${cfg.label} tekrar modu`}
-                        value={ep.repeat ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          patch(
-                            v === ""
-                              ? { repeat: undefined, repeatEvery: undefined }
-                              : { repeat: v as EffectPlacement["repeat"] },
-                          );
-                        }}
-                        className="rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors focus:border-pink-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                      >
-                        <option value="">Varsayılan</option>
-                        <option value="once">Bir kez</option>
-                        <option value="loop">Sürekli</option>
-                        <option value="every">Her N sn&apos;de</option>
-                      </select>
-                      {ep.repeat === "every" && (
-                        <label className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                          her
-                          <input
-                            type="number"
-                            min={3}
-                            max={120}
-                            step={1}
-                            value={ep.repeatEvery ?? 15}
-                            onChange={(e) =>
-                              patch({
-                                repeatEvery: Math.min(
-                                  120,
-                                  Math.max(3, Number(e.target.value) || 15),
-                                ),
-                              })
-                            }
-                            className="w-14 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 outline-none transition-colors focus:border-pink-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-                          />
-                          saniyede bir
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          <EffectSettings
+            items={effects.map((ep) => {
+              const cfg = resolveEffectFor(ep.id);
+              return {
+                id: ep.id,
+                label: cfg.label,
+                emoji: cfg.emoji,
+                scale: ep.scale ?? 1,
+                speed: ep.speed ?? animationSpeed,
+                repeat: ep.repeat,
+                repeatEvery: ep.repeatEvery,
+              };
+            })}
+            onScaleChange={(id, v) => applyEffectPatch(id, { scale: v })}
+            onSpeedChange={(id, v) => applyEffectPatch(id, { speed: v })}
+            onRepeatChange={(id, repeat) =>
+              applyEffectPatch(
+                id,
+                repeat === undefined
+                  ? { repeat: undefined, repeatEvery: undefined }
+                  : { repeat },
+              )
+            }
+            onRepeatEveryChange={(id, v) =>
+              applyEffectPatch(id, { repeatEvery: v })
+            }
+          />
         )}
       </div>
 
@@ -611,7 +541,13 @@ export default function LayoutEditor({
         videoScale !== 1 ||
         textFont !== "system" ||
         effects.some(
-          (e) => e.x !== 50 || e.y !== 50 || (e.scale ?? 1) !== 1,
+          (e) =>
+            e.x !== 50 ||
+            e.y !== 50 ||
+            (e.scale ?? 1) !== 1 ||
+            e.speed !== undefined ||
+            e.repeat !== undefined ||
+            e.repeatEvery !== undefined,
         )) && (
         <button
           type="button"
@@ -621,7 +557,15 @@ export default function LayoutEditor({
               { x: 50, y: 50, scale: 1 },
               { x: 50, y: 75, fontSize: 1 },
               1,
-              effects.map((e) => ({ ...e, x: 50, y: 50, scale: 1 })),
+              effects.map((e) => ({
+                ...e,
+                x: 50,
+                y: 50,
+                scale: 1,
+                speed: undefined,
+                repeat: undefined,
+                repeatEvery: undefined,
+              })),
             );
           }}
           className="mt-2 w-full text-center text-xs text-zinc-500 underline-offset-4 hover:underline"
