@@ -1,21 +1,20 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { getPalette, templates } from "@/lib/templates";
 import type { EffectPlacement, GreetingAudio, TemplateId } from "@/lib/types";
+import { DEFAULT_EFFECT_BY_TEMPLATE } from "@/lib/effects/presets";
 import {
-  EFFECT_CATEGORIES,
-  EFFECTS,
-  DEFAULT_EFFECT_BY_TEMPLATE,
-} from "@/lib/effects/presets";
+  ANIMATION_CATALOG,
+  ANIMATION_CATEGORIES,
+  MAX_ANIMATIONS,
+  getAnimation,
+} from "@/lib/animations";
 import {
   applyPalette,
   getThemeForEvent,
   invitationPalettes,
-  INVITATION_ANIMATIONS,
-  INVITATION_ANIMATION_CATEGORIES,
-  type InvitationAnimationId,
 } from "@/lib/invitation/themes";
 import {
   EVENT_TYPE_EMOJIS,
@@ -65,7 +64,7 @@ interface InviteState {
   /** Tema renk paleti ("" = tema varsayılanı). */
   paletteId: string;
   /** Seçilen açılış animasyonları (en fazla 4). */
-  animations: InvitationAnimationId[];
+  animations: string[];
   envelopeAnimation: boolean;
   textFont: string;
   textSize: number;
@@ -160,9 +159,16 @@ export default function CreateForm({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<CreatedLink | null>(null);
-  const [openCategories, setOpenCategories] = useState<string[]>([
-    INVITATION_ANIMATION_CATEGORIES[0].id,
-  ]);
+  const [openCategories, setOpenCategories] = useState<string[]>(() => {
+    const category = getAnimation("cicekler")?.category;
+    return [category ?? ANIMATION_CATEGORIES[0].id];
+  });
+  const [openEffectCats, setOpenEffectCats] = useState<string[]>(() => {
+    const category = getAnimation(
+      DEFAULT_EFFECT_BY_TEMPLATE[templates[0].id],
+    )?.category;
+    return category ? [category] : [];
+  });
 
   const selectedTemplate = templates.find((t) => t.id === templateId)!;
   const invTheme = getThemeForEvent(invite.eventType);
@@ -508,45 +514,93 @@ export default function CreateForm({
                     noktasından başlar)
                   </span>
                 </span>
-                <div className="mt-3 space-y-4">
-                  {EFFECT_CATEGORIES.map((cat) => {
-                    const list = Object.values(EFFECTS).filter(
-                      (e) => e.category === cat.id,
+                <div className="mt-3 space-y-2">
+                  {ANIMATION_CATEGORIES.map((cat) => {
+                    const list = ANIMATION_CATALOG.filter(
+                      (a) => a.category === cat.id,
                     );
+                    if (list.length === 0) return null;
+                    const opened = openEffectCats.includes(cat.id);
+                    const selectedCount = list.filter((ef) =>
+                      layout.effects.some((e) => e.id === ef.id),
+                    ).length;
                     return (
-                      <div key={cat.id}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
-                          {cat.label}
-                        </p>
-                        <div className="mt-2 grid gap-2 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
-                          {list.map((ef) => {
-                            const active = layout.effects.some(
-                              (e) => e.id === ef.id,
-                            );
-                            return (
-                              <button
-                                key={ef.id}
-                                type="button"
-                                onClick={() =>
-                                  setLayout((prev) => ({
-                                    ...prev,
-                                    effects: active
-                                      ? prev.effects.filter((e) => e.id !== ef.id)
-                                      : [...prev.effects, { id: ef.id, scale: 1 }],
-                                  }))
-                                }
-                                className={`flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
-                                  active
-                                    ? "border-pink-500 ring-2 ring-pink-500/30"
-                                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                                }`}
-                              >
-                                <span aria-hidden>{ef.emoji}</span>
-                                {ef.label}
-                              </button>
-                            );
-                          })}
-                        </div>
+                      <div
+                        key={cat.id}
+                        className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+                      >
+                        <button
+                          type="button"
+                          aria-expanded={opened}
+                          onClick={() =>
+                            setOpenEffectCats((prev) =>
+                              opened
+                                ? prev.filter((x) => x !== cat.id)
+                                : [...prev, cat.id],
+                            )
+                          }
+                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                        >
+                          <span className="flex items-center gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                            <span aria-hidden>{cat.emoji}</span>
+                            {cat.label}
+                            {selectedCount > 0 && (
+                              <span className="rounded-full bg-pink-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                                {selectedCount}
+                              </span>
+                            )}
+                          </span>
+                          <span
+                            aria-hidden
+                            className={`text-zinc-400 transition-transform duration-300 ${
+                              opened ? "rotate-180" : ""
+                            }`}
+                          >
+                            ▾
+                          </span>
+                        </button>
+                        <AnimatePresence initial={false}>
+                          {opened && (
+                            <motion.div
+                              key="content"
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: "easeInOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="grid gap-2 border-t border-zinc-100 p-3 dark:border-zinc-800 grid-cols-[repeat(auto-fill,minmax(140px,1fr))]">
+                                {list.map((ef) => {
+                                  const active = layout.effects.some(
+                                    (e) => e.id === ef.id,
+                                  );
+                                  return (
+                                    <button
+                                      key={ef.id}
+                                      type="button"
+                                      onClick={() =>
+                                        setLayout((prev) => ({
+                                          ...prev,
+                                          effects: active
+                                            ? prev.effects.filter((e) => e.id !== ef.id)
+                                            : [...prev.effects, { id: ef.id, scale: 1 }],
+                                        }))
+                                      }
+                                      className={`flex items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-xs font-medium transition-all ${
+                                        active
+                                          ? "border-pink-500 ring-2 ring-pink-500/30"
+                                          : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                                      }`}
+                                    >
+                                      <span aria-hidden>{ef.emoji}</span>
+                                      {ef.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     );
                   })}
@@ -692,8 +746,8 @@ export default function CreateForm({
                   </span>
                 </span>
                 <div className="mt-3 space-y-2">
-                  {INVITATION_ANIMATION_CATEGORIES.map((cat) => {
-                    const items = INVITATION_ANIMATIONS.filter(
+                  {ANIMATION_CATEGORIES.map((cat) => {
+                    const items = ANIMATION_CATALOG.filter(
                       (a) => a.category === cat.id,
                     );
                     if (items.length === 0) return null;
@@ -729,65 +783,76 @@ export default function CreateForm({
                           </span>
                           <span
                             aria-hidden
-                            className={`text-zinc-400 transition-transform ${
+                            className={`text-zinc-400 transition-transform duration-300 ${
                               opened ? "rotate-180" : ""
                             }`}
                           >
                             ▾
                           </span>
                         </button>
-                        {opened && (
-                          <div className="grid gap-2 border-t border-zinc-100 p-3 dark:border-zinc-800 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
-                            {items.map((a) => {
-                              const active = invite.animations.includes(a.id);
-                              const disabled =
-                                !active &&
-                                invite.animations.length >= 4;
-                              return (
-                                <button
-                                  key={a.id}
-                                  type="button"
-                                  disabled={disabled}
-                                  onClick={() =>
-                                    setInvite((prev) => ({
-                                      ...prev,
-                                      animations: active
-                                        ? prev.animations.filter(
-                                            (x) => x !== a.id,
-                                          )
-                                        : [...prev.animations, a.id],
-                                    }))
-                                  }
-                                  className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
-                                    active
-                                      ? "border-pink-500 ring-2 ring-pink-500/30"
-                                      : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                                  } ${disabled ? "opacity-40" : ""}`}
-                                >
-                                  <span
-                                    aria-hidden
-                                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white ${
-                                      active
-                                        ? "border-pink-500 bg-pink-500"
-                                        : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900"
-                                    }`}
-                                  >
-                                    {active ? "✓" : ""}
-                                  </span>
-                                  <span className="min-w-0">
-                                    <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                      <span aria-hidden>{a.emoji}</span>
-                                      {a.label}
-                                    </span>
-                                    <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                                      {a.description}
-                                    </span>
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
+                        <AnimatePresence initial={false}>
+                          {opened && (
+                            <motion.div
+                              key="content"
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3, ease: "easeInOut" }}
+                              className="overflow-hidden"
+                            >
+                              <div className="grid gap-2 border-t border-zinc-100 p-3 dark:border-zinc-800 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                                {items.map((a) => {
+                                  const active = invite.animations.includes(a.id);
+                                  const disabled =
+                                    !active &&
+                                    invite.animations.length >= 4;
+                                  return (
+                                    <button
+                                      key={a.id}
+                                      type="button"
+                                      disabled={disabled}
+                                      onClick={() =>
+                                        setInvite((prev) => ({
+                                          ...prev,
+                                          animations: active
+                                            ? prev.animations.filter(
+                                                (x) => x !== a.id,
+                                              )
+                                            : [...prev.animations, a.id],
+                                        }))
+                                      }
+                                      className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
+                                        active
+                                          ? "border-pink-500 ring-2 ring-pink-500/30"
+                                          : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                                      } ${disabled ? "opacity-40" : ""}`}
+                                    >
+                                      <span
+                                        aria-hidden
+                                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white ${
+                                          active
+                                            ? "border-pink-500 bg-pink-500"
+                                            : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900"
+                                        }`}
+                                      >
+                                        {active ? "✓" : ""}
+                                      </span>
+                                      <span className="min-w-0">
+                                        <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                          <span aria-hidden>{a.emoji}</span>
+                                          {a.label}
+                                        </span>
+                                        <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                                          {a.description}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     );
                   })}

@@ -542,10 +542,11 @@ export function hasEffect(id: unknown): boolean {
 export const EFFECT_CATEGORIES: {
   id: EffectConfig["category"];
   label: string;
+  emoji: string;
 }[] = [
-  { id: "bloom", label: "Çiçek Açma" },
-  { id: "burst", label: "Patlama & Parçacık" },
-  { id: "ambient", label: "Atmosferik" },
+  { id: "bloom", label: "Çiçek Açma", emoji: "🌸" },
+  { id: "burst", label: "Patlama & Parçacık", emoji: "💥" },
+  { id: "ambient", label: "Atmosferik", emoji: "🌙" },
 ];
 
 export const DEFAULT_EFFECT_BY_TEMPLATE: Record<TemplateId, EffectId> = {
