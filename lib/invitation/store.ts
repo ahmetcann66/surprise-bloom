@@ -3,6 +3,7 @@ import type {
   CreateInvitationInput,
   Invitation,
   InvitationDetails,
+  InvitationLayoutPos,
   InvitationOptions,
 } from "@/lib/invitation/types";
 import { getTheme } from "@/lib/invitation/themes";
@@ -17,6 +18,32 @@ import { supabase } from "@/lib/supabase";
 // Özelleştirmeler (palet, animasyon, zarf animasyonu) DB şemasına
 // dokunmadan `theme` sütununa JSON olarak kodlanır. Eski satırlar düz tema
 // id'si olarak okunur ve varsayılan ayarlarla döner — migration gerekmez.
+
+function readPos(value: unknown): InvitationLayoutPos | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const o = value as Record<string, unknown>;
+  const result: InvitationLayoutPos = {};
+  if (typeof o.x === "number") result.x = o.x;
+  if (typeof o.y === "number") result.y = o.y;
+  if (typeof o.scale === "number") result.scale = o.scale;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function readPlacements(
+  value: unknown,
+): Record<string, InvitationLayoutPos> | undefined {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return undefined;
+  }
+  const result: Record<string, InvitationLayoutPos> = {};
+  for (const [key, p] of Object.entries(value as Record<string, unknown>)) {
+    const pos = readPos(p);
+    if (pos) result[key] = pos;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
 
 function serializeTheme(
   themeId: string,
@@ -41,6 +68,22 @@ function serializeTheme(
   if (typeof options.animationScale === "number") {
     cleaned.animationScale = options.animationScale;
   }
+  if (options.textPos && Object.keys(options.textPos).length > 0) {
+    cleaned.textPos = { ...options.textPos };
+  }
+  if (options.photoPos && Object.keys(options.photoPos).length > 0) {
+    cleaned.photoPos = { ...options.photoPos };
+  }
+  if (
+    options.animationPlacements &&
+    Object.keys(options.animationPlacements).length > 0
+  ) {
+    cleaned.animationPlacements = Object.fromEntries(
+      Object.entries(options.animationPlacements).filter(
+        ([, p]) => p && Object.keys(p).length > 0,
+      ),
+    );
+  }
   if (Object.keys(cleaned).length === 0) return themeId;
   return JSON.stringify({ v: 1, id: themeId, ...cleaned });
 }
@@ -61,6 +104,9 @@ function deserializeTheme(raw: string): {
       textSize?: unknown;
       animationSpeed?: unknown;
       animationScale?: unknown;
+      textPos?: unknown;
+      photoPos?: unknown;
+      animationPlacements?: unknown;
     };
     if (typeof parsed.id !== "string" || !getTheme(parsed.id)) {
       return { themeId: raw };
@@ -92,6 +138,12 @@ function deserializeTheme(raw: string): {
     if (typeof parsed.animationScale === "number") {
       options.animationScale = parsed.animationScale;
     }
+    const pos = readPos(parsed.textPos);
+    if (pos) options.textPos = pos;
+    const photoPos = readPos(parsed.photoPos);
+    if (photoPos) options.photoPos = photoPos;
+    const placements = readPlacements(parsed.animationPlacements);
+    if (placements) options.animationPlacements = placements;
     return { themeId: parsed.id, options };
   } catch {
     return { themeId: raw };

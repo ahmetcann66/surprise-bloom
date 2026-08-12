@@ -8,7 +8,11 @@ import { getEffect } from "@/lib/effects/presets";
 import EffectStage from "@/lib/effects/engine";
 import VectorFormEffect from "@/components/vector-form-effect";
 import { getTextFont } from "@/lib/fonts";
-import { formatDate, type EventType } from "@/lib/invitation/types";
+import {
+  formatDate,
+  type EventType,
+  type InvitationLayoutPos,
+} from "@/lib/invitation/types";
 import {
   getInvitationAnimation,
   resolveInvitationAnimations,
@@ -41,7 +45,17 @@ interface CoupleRevealProps {
   animationSpeed?: number;
   /** Açılış animasyonu boyut çarpanı (varsayılan: 1). */
   animationScale?: number;
+  /** Bilgiler bloğu konumu (yüzde). */
+  textPos?: InvitationLayoutPos;
+  /** Fotoğraf konumu/boyutu. */
+  photoPos?: InvitationLayoutPos;
+  /** Animasyon başına konum/boyut. */
+  animationPlacements?: Record<string, InvitationLayoutPos>;
 }
+
+const DEFAULT_TEXT_POS = { x: 50, y: 88 };
+const DEFAULT_PHOTO_POS = { x: 50, y: 72, scale: 1 };
+const DEFAULT_ANIM_POS = { x: 50, y: 42 };
 
 export default function CoupleReveal({
   theme,
@@ -62,6 +76,9 @@ export default function CoupleReveal({
   textSize = 1,
   animationSpeed = 1,
   animationScale = 1,
+  textPos,
+  photoPos,
+  animationPlacements,
 }: CoupleRevealProps) {
   const sceneRef = useRef<HTMLDivElement>(null);
   const figARef = useRef<HTMLDivElement>(null);
@@ -106,8 +123,8 @@ export default function CoupleReveal({
     tl.add(() => setBurst(true), ">0.15");
 
     if (details) {
-      gsap.set(details, { opacity: 0, y: 26 });
-      tl.to(details, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, ">0.1");
+      gsap.set(details, { opacity: 0 });
+      tl.to(details, { opacity: 1, duration: 0.55, ease: "power2.out" }, ">0.1");
     }
 
     return () => {
@@ -122,39 +139,47 @@ export default function CoupleReveal({
     .map((id) => getInvitationAnimation(id))
     .filter((a): a is InvitationAnimation => !!a);
   const activeAnims = resolved.length > 0 ? resolved : [getInvitationAnimation("cicekler")!];
-  const ambients = activeAnims
-    .map((a) => getEffect(a.ambient))
-    .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i);
   const bursts = activeAnims
     .map((a) => getEffect(a.burst))
     .filter((e, i, arr) => arr.findIndex((x) => x.id === e.id) === i);
   const flowersOn = activeAnims.some((a) => a.flowers);
+  const tx = textPos?.x ?? DEFAULT_TEXT_POS.x;
+  const ty = textPos?.y ?? DEFAULT_TEXT_POS.y;
+  const px = photoPos?.x ?? DEFAULT_PHOTO_POS.x;
+  const py = photoPos?.y ?? DEFAULT_PHOTO_POS.y;
+  const photoScale = photoPos?.scale ?? DEFAULT_PHOTO_POS.scale!;
 
   return (
     <div
       className="relative flex min-h-dvh w-full flex-col overflow-hidden"
       style={{ background: theme.background, color: theme.textColor }}
     >
-      {/* ambiyans */}
-      {ambients.map((fx) => (
-        <div
-          key={fx.id}
-          className="pointer-events-none absolute inset-0 z-[1]"
-          style={{
-            transform: `scale(${animationScale})`,
-            transformOrigin: "50% 42%",
-          }}
-        >
-          <EffectStage
-            config={fx}
-            active
-            reducedMotion={reducedMotion}
-            origin={{ x: 50, y: 42 }}
-            repeat="loop"
-            speed={animationSpeed}
-          />
-        </div>
-      ))}
+      {/* ambiyans (her animasyon kendi konumunda) */}
+      {activeAnims.map((a) => {
+        const fx = getEffect(a.ambient);
+        const p = animationPlacements?.[a.id] ?? {};
+        const origin = { x: p.x ?? DEFAULT_ANIM_POS.x, y: p.y ?? DEFAULT_ANIM_POS.y };
+        const scale = animationScale * (p.scale ?? 1);
+        return (
+          <div
+            key={a.id}
+            className="pointer-events-none absolute inset-0 z-[1]"
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: `${origin.x}% ${origin.y}%`,
+            }}
+          >
+            <EffectStage
+              config={fx}
+              active
+              reducedMotion={reducedMotion}
+              origin={origin}
+              repeat="loop"
+              speed={animationSpeed}
+            />
+          </div>
+        );
+      })}
       {flowersOn && (
         <>
           <VectorFormEffect
@@ -217,10 +242,41 @@ export default function CoupleReveal({
         ))}
       </div>
 
+      {/* fotoğraf */}
+      {photo && (
+        <div
+          className="absolute z-20 rounded-2xl border-2 p-1.5"
+          style={{
+            left: `${px}%`,
+            top: `${py}%`,
+            transform: "translate(-50%, -50%)",
+            borderColor: `${theme.accent}99`,
+            background: `${theme.accent}22`,
+            boxShadow: "0 12px 28px rgba(0,0,0,0.35)",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={photo}
+            alt={`${monogram} fotoğrafı`}
+            className="rounded-xl object-cover"
+            style={{ width: `${128 * photoScale}px`, maxWidth: "60vw" }}
+          />
+        </div>
+      )}
+
       {/* bilgiler */}
       <div
         ref={detailsRef}
-        className="relative z-10 px-6 pb-10 pt-4 text-center"
+        className="absolute z-10 w-[86%] max-w-md text-center"
+        style={{
+          left: `${tx}%`,
+          top: `${ty}%`,
+          transform: "translate(-50%, -50%)",
+          maxHeight: "82%",
+          overflowY: "auto",
+          scrollbarWidth: "none",
+        }}
       >
         <p
           className="text-xs font-semibold uppercase tracking-[0.28em]"
@@ -239,23 +295,6 @@ export default function CoupleReveal({
         >
           {monogram}
         </h1>
-        {photo && (
-          <div
-            className="mx-auto mt-4 inline-block rounded-2xl border-2 p-1.5"
-            style={{
-              borderColor: `${theme.accent}99`,
-              background: `${theme.accent}22`,
-              boxShadow: "0 12px 28px rgba(0,0,0,0.35)",
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photo}
-              alt={`${monogram} fotoğrafı`}
-              className="h-40 w-32 rounded-xl object-cover sm:h-48 sm:w-36"
-            />
-          </div>
-        )}
         <div
           className="mx-auto mt-4 flex max-w-md items-center justify-center gap-2 text-sm opacity-90 sm:gap-3"
           style={{ fontFamily }}

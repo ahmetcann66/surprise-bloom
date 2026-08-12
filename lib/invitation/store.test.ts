@@ -101,6 +101,33 @@ describe("invitation store fallback", () => {
     expect(fetched?.options?.animationScale).toBe(0.8);
   });
 
+  it("yerleşim (textPos/photoPos/animationPlacements) yuvarlak testi", async () => {
+    withoutSupabaseEnv();
+    const created = await createInvitation({
+      themeId: "dugun-altin",
+      details: {
+        eventType: "dugun",
+        partnerA: "Merve",
+        partnerB: "Kerem",
+        date: "2026-08-15",
+        venue: "Salon",
+      },
+      options: {
+        textPos: { x: 50, y: 90 },
+        photoPos: { x: 50, y: 70, scale: 1.4 },
+        animationPlacements: { kalpler: { x: 30, y: 45 }, kuslar: { x: 70, y: 50, scale: 0.8 } },
+      },
+    });
+
+    const fetched = await getInvitationById(created.id);
+    expect(fetched?.options?.textPos).toEqual({ x: 50, y: 90 });
+    expect(fetched?.options?.photoPos).toEqual({ x: 50, y: 70, scale: 1.4 });
+    expect(fetched?.options?.animationPlacements).toEqual({
+      kalpler: { x: 30, y: 45 },
+      kuslar: { x: 70, y: 50, scale: 0.8 },
+    });
+  });
+
   it("eski tekli animation alanı okunur ve animations'sız kalır", async () => {
     withoutSupabaseEnv();
     const created = await createInvitation({

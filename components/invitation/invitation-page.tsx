@@ -92,6 +92,9 @@ export default function InvitationPage({
         textSize={textSize}
         animationSpeed={animationSpeed}
         animationScale={animationScale}
+        textPos={options?.textPos}
+        photoPos={options?.photoPos}
+        animationPlacements={options?.animationPlacements}
       />
       {label && (
         <div className="absolute bottom-3 right-3 z-30">

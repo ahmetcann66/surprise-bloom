@@ -12,11 +12,28 @@ import { parseGreetingAudio } from "@/lib/music";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { isTextFontId } from "@/lib/fonts";
 import type { GreetingAudio } from "@/lib/types";
+import type { InvitationLayoutPos } from "@/lib/invitation/types";
 
 const clampNumber = (v: unknown, min: number, max: number) =>
   typeof v === "number" && Number.isFinite(v)
     ? Math.min(max, Math.max(min, v))
     : undefined;
+
+function parseLayoutPos(
+  value: unknown,
+): InvitationLayoutPos | undefined | null {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  const o = value as Record<string, unknown>;
+  const x = clampNumber(o.x, 0, 100);
+  const y = clampNumber(o.y, 0, 100);
+  const scale = clampNumber(o.scale, 0.4, 3);
+  const result: InvitationLayoutPos = {};
+  if (x !== undefined) result.x = x;
+  if (y !== undefined) result.y = y;
+  if (scale !== undefined) result.scale = scale;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
 
 function parseAudio(raw: unknown): GreetingAudio | undefined {
   return parseGreetingAudio(raw);
@@ -47,6 +64,9 @@ export async function POST(request: Request) {
     textSize,
     animationSpeed,
     animationScale,
+    textPos,
+    photoPos,
+    animationPlacements,
     name,
     eventType,
     partnerA,
@@ -69,6 +89,9 @@ export async function POST(request: Request) {
     textSize?: unknown;
     animationSpeed?: unknown;
     animationScale?: unknown;
+    textPos?: unknown;
+    photoPos?: unknown;
+    animationPlacements?: unknown;
     name?: unknown;
     eventType?: unknown;
     partnerA?: unknown;
@@ -185,6 +208,42 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "Geçersiz boyut/hız değeri." },
+      { status: 400 },
+    );
+  }
+
+  const parsedTextPos = parseLayoutPos(textPos);
+  const parsedPhotoPos = parseLayoutPos(photoPos);
+  if (parsedTextPos === null || parsedPhotoPos === null) {
+    return NextResponse.json(
+      { error: "Geçersiz konum değeri." },
+      { status: 400 },
+    );
+  }
+
+  const parsedPlacements: Record<string, InvitationLayoutPos> | null | undefined =
+    animationPlacements === undefined || animationPlacements === null
+      ? undefined
+      : (() => {
+          if (
+            typeof animationPlacements !== "object" ||
+            Array.isArray(animationPlacements)
+          ) {
+            return null;
+          }
+          const result: Record<string, InvitationLayoutPos> = {};
+          for (const [key, p] of Object.entries(
+            animationPlacements as Record<string, unknown>,
+          )) {
+            const pos = parseLayoutPos(p);
+            if (pos === null) return null;
+            if (pos) result[key] = pos;
+          }
+          return result;
+        })();
+  if (parsedPlacements === null) {
+    return NextResponse.json(
+      { error: "Geçersiz animasyon konumu." },
       { status: 400 },
     );
   }
@@ -330,6 +389,11 @@ export async function POST(request: Request) {
           : {}),
         ...(parsedAnimationScale !== undefined
           ? { animationScale: parsedAnimationScale }
+          : {}),
+        ...(parsedTextPos ? { textPos: parsedTextPos } : {}),
+        ...(parsedPhotoPos ? { photoPos: parsedPhotoPos } : {}),
+        ...(parsedPlacements && Object.keys(parsedPlacements).length > 0
+          ? { animationPlacements: parsedPlacements }
           : {}),
       },
     });

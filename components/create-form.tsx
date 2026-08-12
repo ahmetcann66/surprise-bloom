@@ -21,6 +21,7 @@ import {
   EVENT_TYPE_EMOJIS,
   EVENT_TYPE_LABELS,
   type EventType,
+  type InvitationLayoutPos,
 } from "@/lib/invitation/types";
 import QrCode from "@/components/qr-code";
 import MusicField from "@/components/music-field";
@@ -70,6 +71,12 @@ interface InviteState {
   textSize: number;
   animationSpeed: number;
   animationScale: number;
+  /** Bilgiler bloğu konumu (yüzde). */
+  textPos: InvitationLayoutPos;
+  /** Fotoğraf konumu/boyutu. */
+  photoPos: InvitationLayoutPos;
+  /** Animasyon başına konum/boyut. */
+  animationPlacements: Record<string, InvitationLayoutPos>;
 }
 
 const DEFAULT_INVITE: InviteState = {
@@ -88,6 +95,9 @@ const DEFAULT_INVITE: InviteState = {
   textSize: 1,
   animationSpeed: 1,
   animationScale: 1,
+  textPos: { x: 50, y: 88 },
+  photoPos: { x: 50, y: 72, scale: 1 },
+  animationPlacements: {},
 };
 
 function partnerLabels(et: EventType): { a: string; b?: string } {
@@ -150,6 +160,9 @@ export default function CreateForm({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<CreatedLink | null>(null);
+  const [openCategories, setOpenCategories] = useState<string[]>([
+    INVITATION_ANIMATION_CATEGORIES[0].id,
+  ]);
 
   const selectedTemplate = templates.find((t) => t.id === templateId)!;
   const invTheme = getThemeForEvent(invite.eventType);
@@ -190,6 +203,9 @@ export default function CreateForm({
             textSize: invite.textSize,
             animationSpeed: invite.animationSpeed,
             animationScale: invite.animationScale,
+            textPos: invite.textPos,
+            photoPos: invite.photoPos,
+            animationPlacements: invite.animationPlacements,
             eventType: invite.eventType,
             name: name.trim() || undefined,
             partnerA: invite.partnerA.trim(),
@@ -675,68 +691,103 @@ export default function CreateForm({
                     kattığını önizlemede canlı izle)
                   </span>
                 </span>
-                <div className="mt-3 space-y-4">
+                <div className="mt-3 space-y-2">
                   {INVITATION_ANIMATION_CATEGORIES.map((cat) => {
                     const items = INVITATION_ANIMATIONS.filter(
                       (a) => a.category === cat.id,
                     );
                     if (items.length === 0) return null;
+                    const opened = openCategories.includes(cat.id);
+                    const selectedCount = items.filter((a) =>
+                      invite.animations.includes(a.id),
+                    ).length;
                     return (
-                      <div key={cat.id}>
-                        <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
-                          <span aria-hidden>{cat.emoji}</span>
-                          {cat.label}
-                        </p>
-                        <div className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
-                          {items.map((a) => {
-                            const active = invite.animations.includes(a.id);
-                            const disabled =
-                              !active &&
-                              invite.animations.length >= 4;
-                            return (
-                              <button
-                                key={a.id}
-                                type="button"
-                                disabled={disabled}
-                                onClick={() =>
-                                  setInvite((prev) => ({
-                                    ...prev,
-                                    animations: active
-                                      ? prev.animations.filter(
-                                          (x) => x !== a.id,
-                                        )
-                                      : [...prev.animations, a.id],
-                                  }))
-                                }
-                                className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
-                                  active
-                                    ? "border-pink-500 ring-2 ring-pink-500/30"
-                                    : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
-                                } ${disabled ? "opacity-40" : ""}`}
-                              >
-                                <span
-                                  aria-hidden
-                                  className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white ${
+                      <div
+                        key={cat.id}
+                        className="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+                      >
+                        <button
+                          type="button"
+                          aria-expanded={opened}
+                          onClick={() =>
+                            setOpenCategories((prev) =>
+                              opened
+                                ? prev.filter((x) => x !== cat.id)
+                                : [...prev, cat.id],
+                            )
+                          }
+                          className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                        >
+                          <span className="flex items-center gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                            <span aria-hidden>{cat.emoji}</span>
+                            {cat.label}
+                            {selectedCount > 0 && (
+                              <span className="rounded-full bg-pink-500 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                                {selectedCount}
+                              </span>
+                            )}
+                          </span>
+                          <span
+                            aria-hidden
+                            className={`text-zinc-400 transition-transform ${
+                              opened ? "rotate-180" : ""
+                            }`}
+                          >
+                            ▾
+                          </span>
+                        </button>
+                        {opened && (
+                          <div className="grid gap-2 border-t border-zinc-100 p-3 dark:border-zinc-800 grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+                            {items.map((a) => {
+                              const active = invite.animations.includes(a.id);
+                              const disabled =
+                                !active &&
+                                invite.animations.length >= 4;
+                              return (
+                                <button
+                                  key={a.id}
+                                  type="button"
+                                  disabled={disabled}
+                                  onClick={() =>
+                                    setInvite((prev) => ({
+                                      ...prev,
+                                      animations: active
+                                        ? prev.animations.filter(
+                                            (x) => x !== a.id,
+                                          )
+                                        : [...prev.animations, a.id],
+                                    }))
+                                  }
+                                  className={`flex items-start gap-2 rounded-xl border p-3 text-left transition-all ${
                                     active
-                                      ? "border-pink-500 bg-pink-500"
-                                      : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900"
-                                  }`}
+                                      ? "border-pink-500 ring-2 ring-pink-500/30"
+                                      : "border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700"
+                                  } ${disabled ? "opacity-40" : ""}`}
                                 >
-                                  {active ? "✓" : ""}
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-                                    <span aria-hidden>{a.emoji}</span>
-                                    {a.label}
+                                  <span
+                                    aria-hidden
+                                    className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] text-white ${
+                                      active
+                                        ? "border-pink-500 bg-pink-500"
+                                        : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-900"
+                                    }`}
+                                  >
+                                    {active ? "✓" : ""}
                                   </span>
-                                  <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
-                                    {a.description}
+                                  <span className="min-w-0">
+                                    <span className="flex items-center gap-1.5 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+                                      <span aria-hidden>{a.emoji}</span>
+                                      {a.label}
+                                    </span>
+                                    <span className="block text-[11px] text-zinc-500 dark:text-zinc-400">
+                                      {a.description}
+                                    </span>
                                   </span>
-                                </span>
-                              </button>
-                            );
-                          })}
-                        </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -797,10 +848,14 @@ export default function CreateForm({
                     partnerA={invite.partnerA}
                     partnerB={invite.partnerB}
                     recipientName={name}
+                    photo={photo}
                     textFont={invite.textFont}
                     textSize={invite.textSize}
                     animationSpeed={invite.animationSpeed}
                     animationScale={invite.animationScale}
+                    textPos={invite.textPos}
+                    photoPos={invite.photoPos}
+                    animationPlacements={invite.animationPlacements}
                     onFontChange={(f) => setInviteField("textFont", f)}
                     onTextSizeChange={(v) => setInviteField("textSize", v)}
                     onAnimationSpeedChange={(v) =>
@@ -808,6 +863,14 @@ export default function CreateForm({
                     }
                     onAnimationScaleChange={(v) =>
                       setInviteField("animationScale", v)
+                    }
+                    onTextPosChange={(p) => setInviteField("textPos", p)}
+                    onPhotoPosChange={(p) => setInviteField("photoPos", p)}
+                    onAnimationPosChange={(id, p) =>
+                      setInviteField("animationPlacements", {
+                        ...invite.animationPlacements,
+                        [id]: p,
+                      })
                     }
                   />
                 </div>

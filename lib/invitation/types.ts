@@ -43,6 +43,16 @@ export interface InvitationDetails {
   message?: string;
 }
 
+/** Davetiyedeki bir öğenin (yazı / fotoğraf / animasyon) konumu ve boyutu. */
+export interface InvitationLayoutPos {
+  /** Ekran yüzdesi, 0-100 (varsayılan 50). */
+  x?: number;
+  /** Ekran yüzdesi, 0-100. */
+  y?: number;
+  /** Boyut çarpanı (varsayılan 1). */
+  scale?: number;
+}
+
 /** Kullanıcı tarafından seçilen davetiye özelleştirmeleri. */
 export interface InvitationOptions {
   /** Tema içinden seçilen renk paleti id'si (varsayılan: tema id'si). */
@@ -61,6 +71,12 @@ export interface InvitationOptions {
   animationSpeed?: number;
   /** Açılış animasyonu boyut çarpanı (varsayılan: 1). */
   animationScale?: number;
+  /** Davetiye bilgileri bloğunun konumu (yüzde). */
+  textPos?: InvitationLayoutPos;
+  /** Fotoğrafın konumu ve boyutu (yüzde). */
+  photoPos?: InvitationLayoutPos;
+  /** Animasyon başına konum/boyut; anahtar animasyon id'si. */
+  animationPlacements?: Record<string, InvitationLayoutPos>;
 }
 
 export interface Invitation {
