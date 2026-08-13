@@ -279,8 +279,13 @@ export default function CreateForm({
     }
   }
 
-  function reset() {
+  function edit() {
     setCreated(null);
+    setError("");
+  }
+
+  function reset() {
+    edit();
     setMode("greeting");
     setName("");
     setMessage("");
@@ -332,6 +337,13 @@ export default function CreateForm({
             >
               Önizlemeyi Aç
             </a>
+            <button
+              type="button"
+              onClick={edit}
+              className="flex-1 rounded-full border border-zinc-300 bg-transparent px-5 py-3 text-sm font-semibold text-zinc-700 transition-colors hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+            >
+              Düzenle
+            </button>
           </div>
           <div className="mt-6 flex justify-center">
             <QrCode value={created.fullUrl} theme={qrTheme} emoji={qrEmoji} />
