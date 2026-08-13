@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createInvitation } from "@/lib/invitation/store";
 import { getTheme, invitationPalettes } from "@/lib/invitation/themes";
-import { isAnimation, MAX_ANIMATIONS, resolveAnimations } from "@/lib/animations";
+import { isAnimation, resolveAnimations } from "@/lib/animations";
 import { isEventType } from "@/lib/invitation/types";
 import { parseGreetingAudio } from "@/lib/music";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -160,11 +160,10 @@ export async function POST(request: Request) {
     if (
       !Array.isArray(animations) ||
       animations.length === 0 ||
-      animations.length > MAX_ANIMATIONS ||
       !animations.every(isAnimation)
     ) {
       return NextResponse.json(
-        { error: "Geçersiz animasyon seçimi (en fazla 4)." },
+        { error: "Geçersiz animasyon seçimi." },
         { status: 400 },
       );
     }

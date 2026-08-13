@@ -4,7 +4,6 @@ import {
   ANIMATION_CATEGORIES,
   getAnimation,
   isAnimation,
-  MAX_ANIMATIONS,
   resolveAnimations,
   resolveEffectFor,
 } from "@/lib/animations";
@@ -77,7 +76,7 @@ describe("animations (birleşik katalog)", () => {
     }
   });
 
-  it("resolveAnimations tekrarları süzer, sıralamayı korur, 4 ile sınırlar", () => {
+  it("resolveAnimations tekrarları süzer, sıralamayı korur ve sınırlamaz", () => {
     const ids = [
       "bridal",
       "cicekler",
@@ -91,8 +90,12 @@ describe("animations (birleşik katalog)", () => {
       "cicekler",
       "konfeti",
       "gelin-damat",
+      "kalpler",
     ]);
-    expect(resolveAnimations(ids).length).toBe(MAX_ANIMATIONS);
+    expect(resolveAnimations(ids).length).toBe(5);
+    expect(
+      resolveAnimations(ids).length,
+    ).toBeLessThanOrEqual(ANIMATION_CATALOG.length);
   });
 
   it("resolveAnimations bilinmeyen id'leri atar, boşta varsayılan cicekler döner", () => {

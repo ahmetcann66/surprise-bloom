@@ -44,8 +44,12 @@ export interface UnifiedAnimation {
   flowers: boolean;
 }
 
-/** Davetiye için en fazla seçilebilen animasyon sayısı. */
-export const MAX_ANIMATIONS = 4;
+/**
+ * Seçim sınırsızdır (katalogdaki animasyon sayısıyla sınırlıdır); bu değer
+ * yalnızca kullanıcıya önerilen performans dostu sayıdır. Fazla animasyon
+ * aynı anda çalıştığından eski cihazlarda akıcılığı etkileyebilir.
+ */
+export const RECOMMENDED_ANIMATIONS = 6;
 
 /** Kategori birleşimi: greeting (bloom/burst/ambient) + davetiye kategorileri. */
 export const ANIMATION_CATEGORIES: AnimationCategory[] = [
@@ -113,7 +117,8 @@ export function resolveEffectFor(id: string): EffectConfig {
 
 /**
  * Davetiye seçimlerini çözümler: geçerli olanları alır, tekilleştirir,
- * en fazla MAX_ANIMATIONS ile sınırlar. Seçim yoksa varsayılan ["cicekler"].
+ * sıralamayı korur. Seçim sayısı sınırlanmaz (tekilleştirme zaten katalog
+ * boyutuyla üstten sınırlar). Seçim yoksa varsayılan ["cicekler"].
  */
 export function resolveAnimations(
   animations?: string[],
@@ -126,5 +131,5 @@ export function resolveAnimations(
         ? [legacy]
         : ["cicekler"];
   const valid = raw.filter(isAnimation);
-  return [...new Set(valid)].slice(0, MAX_ANIMATIONS);
+  return [...new Set(valid)];
 }

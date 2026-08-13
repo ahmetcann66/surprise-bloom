@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { getPalette, templates } from "@/lib/templates";
 import type { EffectPlacement, GreetingAudio, TemplateId } from "@/lib/types";
 import { DEFAULT_EFFECT_BY_TEMPLATE } from "@/lib/effects/presets";
-import { MAX_ANIMATIONS, resolveAnimations } from "@/lib/animations";
+import { RECOMMENDED_ANIMATIONS, resolveAnimations } from "@/lib/animations";
 import {
   applyPalette,
   getThemeForEvent,
@@ -508,13 +508,13 @@ export default function CreateForm({
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Efekt seç{" "}
                   <span className="font-normal text-zinc-400">
-                    (birden fazla seçebilirsin, en fazla {MAX_ANIMATIONS} — her
-                    biri kendi başlangıç noktasından başlar)
+                    (sınırsız seçebilirsin — her biri kendi başlangıç noktasından
+                    başlar; akıcılık için {RECOMMENDED_ANIMATIONS} adete kadar
+                    önerilir)
                   </span>
                 </span>
                 <EffectSelector
                   selected={layout.effects.map((e) => e.id)}
-                  max={MAX_ANIMATIONS}
                   onChange={(ids) =>
                     setLayout((prev) => ({
                       ...prev,
@@ -528,6 +528,13 @@ export default function CreateForm({
                     }))
                   }
                 />
+                {layout.effects.length > RECOMMENDED_ANIMATIONS && (
+                  <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                    ⚠️ Seçtiğin animasyon sayısı önerilenden fazla. Animasyonlar
+                    aynı anda çalıştığı için bazı cihazlarda sayfa yavaşlayabilir
+                    veya donabilir; sorun yaşarsan birkaçını kaldırmanı öneririz.
+                  </p>
+                )}
               </FadeUp>
 
               <FadeUp animated={animated} delay={0.25}>
@@ -664,15 +671,22 @@ export default function CreateForm({
                 <span className="text-sm font-medium text-zinc-600 dark:text-zinc-300">
                   Açılış animasyonları{" "}
                   <span className="font-normal text-zinc-400">
-                    (birden fazla seçebilirsin, en fazla {MAX_ANIMATIONS} —
-                    hangi havayı kattığını önizlemede canlı izle)
+                    (sınırsız seçebilirsin — hangi havayı kattığını önizlemede
+                    canlı izle; akıcılık için {RECOMMENDED_ANIMATIONS} adete
+                    kadar önerilir)
                   </span>
                 </span>
                 <EffectSelector
                   selected={invite.animations}
-                  max={MAX_ANIMATIONS}
                   onChange={(ids) => setInviteField("animations", ids)}
                 />
+                {invite.animations.length > RECOMMENDED_ANIMATIONS && (
+                  <p className="mt-2 rounded-lg bg-amber-50 p-3 text-xs text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                    ⚠️ Seçtiğin animasyon sayısı önerilenden fazla. Animasyonlar
+                    aynı anda çalıştığı için bazı cihazlarda sayfa yavaşlayabilir
+                    veya donabilir; sorun yaşarsan birkaçını kaldırmanı öneririz.
+                  </p>
+                )}
               </FadeUp>
 
               <FadeUp animated={animated} delay={0.2}>
